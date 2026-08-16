@@ -1,0 +1,4738 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>검 vs 지팡이 강화 대결</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Noto Sans KR', sans-serif;
+    background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+    color: #fff;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow-x: hidden;
+  }
+  #app {
+    width: 100%;
+    max-width: 480px;
+    min-height: 100vh;
+    background: #1a1a2e;
+    position: relative;
+    box-shadow: 0 0 40px rgba(0,0,0,0.8);
+  }
+  .screen { display: none; padding: 20px; min-height: 100vh; flex-direction: column; }
+  .screen.active { display: flex; }
+  
+  /* 공통 */
+  h1 { text-align: center; font-size: 1.8rem; margin-bottom: 10px; text-shadow: 0 0 10px #ffd700; }
+  h2 { text-align: center; font-size: 1.3rem; margin: 15px 0; color: #ffd700; }
+  .btn {
+    background: linear-gradient(145deg, #4a00e0, #8e2de2);
+    border: none; color: white; padding: 14px 20px; border-radius: 12px;
+    font-size: 1.1rem; font-weight: 700; cursor: pointer;
+    transition: all 0.2s; box-shadow: 0 4px 15px rgba(142,45,226,0.4);
+    width: 100%; margin: 8px 0;
+  }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(142,45,226,0.6); }
+  .btn:active { transform: translateY(0); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .btn-danger { background: linear-gradient(145deg, #c31432, #240b36); }
+  .btn-success { background: linear-gradient(145deg, #00b09b, #96c93d); }
+  .btn-gold { background: linear-gradient(145deg, #f7971e, #ffd200); color: #222; }
+  .btn-super { background: linear-gradient(145deg, #ff416c, #ff4b2b); }
+  .btn-evo { background: linear-gradient(145deg, #7f00ff, #e100ff); }
+  
+  /* 선택 화면 */
+  .class-cards { display: flex; gap: 15px; margin-top: 30px; }
+  .class-card {
+    flex: 1; background: rgba(255,255,255,0.08); border-radius: 16px;
+    padding: 25px 15px; text-align: center; cursor: pointer;
+    border: 2px solid transparent; transition: all 0.3s;
+  }
+  .class-card:hover, .class-card.selected { border-color: #ffd700; background: rgba(255,215,0,0.15); transform: scale(1.03); }
+  .class-icon { font-size: 3.5rem; margin-bottom: 10px; }
+  .class-name { font-size: 1.3rem; font-weight: 900; margin-bottom: 5px; }
+  .class-desc { font-size: 0.85rem; opacity: 0.8; line-height: 1.4; }
+  
+  /* 강화 화면 */
+  .weapon-display {
+    text-align: center; margin: 20px 0; padding: 20px;
+    background: rgba(0,0,0,0.4); border-radius: 16px;
+    border: 2px solid #4a00e0;
+  }
+  .weapon-name { font-size: 1.6rem; font-weight: 900; color: #ffd700; margin-bottom: 5px; }
+  .weapon-level { font-size: 2.5rem; font-weight: 900; color: #fff; text-shadow: 0 0 15px #8e2de2; }
+  .weapon-atk { font-size: 1.1rem; margin-top: 8px; color: #aaa; }
+  .hp-bar-container { margin: 15px 0; }
+  .hp-label { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 4px; }
+  .hp-bar { height: 22px; background: #333; border-radius: 11px; overflow: hidden; position: relative; }
+  .hp-fill { height: 100%; background: linear-gradient(90deg, #00b09b, #96c93d); transition: width 0.5s; border-radius: 11px; }
+  .chance-info { text-align: center; font-size: 1.1rem; margin: 10px 0; }
+  .chance-info span { color: #ffd700; font-weight: 700; }
+  .rate-info { text-align: center; font-size: 0.95rem; color: #aaa; margin-bottom: 15px; }
+  
+  /* 강화 연출 */
+  #enhance-anim {
+    position: absolute; inset: 0; background: rgba(0,0,0,0.85);
+    display: none; flex-direction: column; justify-content: center; align-items: center;
+    z-index: 100; text-align: center;
+  }
+  #enhance-anim.active { display: flex; }
+  .slot-machine {
+    font-size: 4rem; font-weight: 900; height: 80px; overflow: hidden;
+    width: 200px; border: 3px solid #ffd700; border-radius: 12px;
+    background: #111; margin: 20px 0; position: relative;
+  }
+  .slot-inner { transition: transform 0.1s; }
+  .result-text { font-size: 2.2rem; font-weight: 900; margin-top: 20px; opacity: 0; transition: opacity 0.3s; }
+  .result-text.show { opacity: 1; }
+  .result-success { color: #00ff88; text-shadow: 0 0 20px #00ff88; }
+  .result-fail { color: #ff4444; text-shadow: 0 0 20px #ff4444; }
+  
+  /* 전투 화면 */
+  .battle-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .fighter {
+    flex: 1; text-align: center; padding: 10px;
+    background: rgba(0,0,0,0.3); border-radius: 12px; margin: 0 5px;
+  }
+  .fighter.player { border: 2px solid #4a00e0; }
+  .fighter.enemy { border: 2px solid #c31432; }
+  .fighter-name { font-weight: 700; font-size: 0.95rem; }
+  .fighter-weapon { font-size: 0.8rem; color: #ffd700; margin: 4px 0; }
+  .battle-log {
+    flex: 1; background: rgba(0,0,0,0.5); border-radius: 12px;
+    padding: 12px; overflow-y: auto; max-height: 280px; margin: 15px 0;
+    font-size: 0.9rem; line-height: 1.5;
+  }
+  .log-entry { margin-bottom: 6px; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .log-player { color: #7ec8ff; }
+  .log-enemy { color: #ff9a9a; }
+  .log-ability { color: #ffd700; font-weight: 700; }
+  .log-system { color: #aaa; font-style: italic; }
+  
+  /* 능력 팝업 */
+  #ability-popup {
+    position: absolute; inset: 0; background: rgba(0,0,0,0.8);
+    display: none; justify-content: center; align-items: center; z-index: 200;
+    pointer-events: none;
+  }
+  #ability-popup.active { display: flex; pointer-events: auto; }
+  .ability-box {
+    background: linear-gradient(145deg, #1a1a2e, #302b63);
+    border: 3px solid #ffd700; border-radius: 20px; padding: 30px 40px;
+    text-align: center; max-width: 85%; animation: popIn 0.4s ease;
+  }
+  @keyframes popIn { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .ability-title { font-size: 1.5rem; font-weight: 900; color: #ffd700; margin-bottom: 10px; }
+  .ability-desc { font-size: 1.1rem; }
+  
+  /* 결과 */
+  .result-screen { text-align: center; justify-content: center; position: relative; z-index: 500; }
+  .result-title { font-size: 2.5rem; font-weight: 900; margin-bottom: 20px; }
+  .win { color: #00ff88; text-shadow: 0 0 20px #00ff88; }
+  .lose { color: #ff4444; text-shadow: 0 0 20px #ff4444; }
+  
+  .vs { font-size: 1.5rem; font-weight: 900; color: #ffd700; margin: 0 8px; }
+
+  .badge-item {
+    display: flex; align-items: center; gap: 12px;
+    background: rgba(255,255,255,0.06); border-radius: 12px;
+    padding: 10px 12px; margin: 6px 0; border: 1px solid rgba(255,215,0,0.2);
+  }
+  .badge-item.locked { opacity: 0.4; filter: grayscale(1); }
+  .badge-icon { font-size: 1.6rem; min-width: 36px; text-align: center; }
+  .badge-info { flex: 1; }
+  .badge-name { font-weight: 700; color: #ffd700; font-size: 0.95rem; }
+  .badge-desc { font-size: 0.8rem; opacity: 0.8; }
+  .badge-clickable { cursor: pointer; user-select: none; }
+  .badge-clickable:active { transform: scale(0.98); }
+
+  /* 특수 이펙트 오버레이 */
+  #fx-overlay {
+    position: absolute; inset: 0; pointer-events: none; z-index: 300;
+    display: none; overflow: hidden;
+  }
+  #fx-overlay.active { display: block; }
+  .fx-slash {
+    position: absolute; top: 48%; left: -30%; width: 160%; height: 10px;
+    background: linear-gradient(90deg, transparent, #fff 20%, #ffd700 50%, #fff 80%, transparent);
+    box-shadow: 0 0 24px #ffd700, 0 0 48px #ff4400, 0 0 8px #fff;
+    transform: translateY(-50%) rotate(0deg) scaleX(0);
+    animation: slashHoriz 0.45s ease-out forwards;
+  }
+  .fx-slash2 {
+    position: absolute; top: 52%; left: -30%; width: 160%; height: 6px;
+    background: linear-gradient(90deg, transparent, #ffeeee 15%, #ff2222 50%, #ffeeee 85%, transparent);
+    box-shadow: 0 0 18px #ff2222, 0 0 36px #aa0000;
+    transform: translateY(-50%) rotate(0deg) scaleX(0);
+    animation: slashHoriz 0.4s 0.06s ease-out forwards;
+  }
+  @keyframes slashHoriz {
+    0% { transform: translateY(-50%) translateX(-8%) scaleX(0); opacity: 1; }
+    35% { transform: translateY(-50%) translateX(0) scaleX(1); opacity: 1; }
+    100% { transform: translateY(-50%) translateX(4%) scaleX(1); opacity: 0; }
+  }
+  .fx-crack {
+    position: absolute; inset: 0;
+    background:
+      linear-gradient(0deg, transparent 46%, rgba(255,255,255,0.95) 49.5%, transparent 53%),
+      linear-gradient(0deg, transparent 42%, rgba(255,180,50,0.45) 50%, transparent 58%),
+      linear-gradient(180deg, rgba(255,60,0,0.15), transparent 40%, transparent 60%, rgba(255,60,0,0.15));
+    animation: crackFlash 0.65s ease-out forwards;
+  }
+  @keyframes crackFlash {
+    0% { opacity: 0; }
+    20% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+  .fx-screen-shake {
+    animation: shake 0.5s ease-in-out;
+  }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-8px) rotate(-1deg); }
+    40% { transform: translateX(8px) rotate(1deg); }
+    60% { transform: translateX(-6px); }
+    80% { transform: translateX(6px); }
+  }
+  .fx-kill-flash {
+    position: absolute; inset: 0;
+    background: radial-gradient(circle, rgba(255,50,50,0.7) 0%, rgba(0,0,0,0.6) 70%);
+    animation: killFlash 0.8s ease-out forwards;
+  }
+  @keyframes killFlash {
+    0% { opacity: 0; }
+    30% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+  .fx-kill-text {
+    position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%);
+    font-size: 2.8rem; font-weight: 900; color: #ff2222;
+    text-shadow: 0 0 20px #ff0000, 0 0 40px #ff6600;
+    animation: killText 0.9s ease-out forwards;
+    white-space: nowrap;
+  }
+  @keyframes killText {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
+    40% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+  }
+  .fx-awaken {
+    position: absolute; inset: 0;
+    background: radial-gradient(circle, rgba(255,215,0,0.5) 0%, rgba(100,50,255,0.3) 50%, transparent 70%);
+    animation: awakenGlow 1s ease-out forwards;
+  }
+  @keyframes awakenGlow {
+    0% { opacity: 0; transform: scale(0.5); }
+    40% { opacity: 1; transform: scale(1.1); }
+    100% { opacity: 0; transform: scale(1.3); }
+  }
+  .fx-awaken-text {
+    position: absolute; top: 38%; left: 50%; transform: translate(-50%, -50%);
+    font-size: 2.4rem; font-weight: 900; color: #ffd700;
+    text-shadow: 0 0 25px #ffaa00, 0 0 50px #ff6600;
+    animation: killText 1s ease-out forwards;
+    white-space: nowrap;
+  }
+  .fx-particles {
+    position: absolute; inset: 0;
+  }
+  .fx-particle {
+    position: absolute; width: 6px; height: 6px; border-radius: 50%;
+    background: #ffd700; box-shadow: 0 0 8px #ff0;
+    animation: particleFly 0.8s ease-out forwards;
+  }
+  @keyframes particleFly {
+    0% { opacity: 1; transform: translate(0,0) scale(1); }
+    100% { opacity: 0; transform: translate(var(--tx), var(--ty)) scale(0); }
+  }
+
+  .weapon-pick-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    max-height: 50vh; overflow-y: auto; margin: 12px 0;
+  }
+  .weapon-pick {
+    background: rgba(255,255,255,0.08); border: 2px solid transparent;
+    border-radius: 12px; padding: 10px; cursor: pointer; text-align: left;
+    font-size: 0.85rem;
+  }
+  .weapon-pick:hover { border-color: #8e2de2; }
+  .weapon-pick.selected {
+    border-color: #ffd700; background: rgba(255,215,0,0.12);
+  }
+  .weapon-pick .wp-name { font-weight: 700; color: #ffd700; }
+  .weapon-pick .wp-desc { opacity: 0.75; font-size: 0.75rem; margin-top: 4px; }
+  .boss-slot {
+    background: rgba(0,0,0,0.25); border-radius: 10px; padding: 8px 12px;
+    margin: 6px 0; font-size: 0.9rem;
+  }
+</style>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+</head>
+<body>
+<div id="app">
+  <!-- 0. 로그인 -->
+  <div id="auth-screen" class="screen active">
+    <h1>⚔️ 검 vs 지팡이</h1>
+    <p style="text-align:center; opacity:0.8; margin-bottom:12px;">계정 로그인</p>
+    <div style="display:flex; gap:8px; margin-bottom:10px;">
+      <button class="btn" id="auth-tab-login" style="margin:0; flex:1; padding:10px;" onclick="showAuthTab('login')">로그인</button>
+      <button class="btn btn-gold" id="auth-tab-reg" style="margin:0; flex:1; padding:10px;" onclick="showAuthTab('register')">회원가입</button>
+    </div>
+    <input id="auth-email" type="email" placeholder="이메일 (클라우드 계정)"
+      style="width:100%; box-sizing:border-box; padding:12px; border-radius:10px; border:2px solid #8e2de2; background:#1a1a2e; color:#fff; margin-bottom:8px;" />
+    <input id="auth-nick" type="text" maxlength="12" placeholder="닉네임 (최대 12자)"
+      style="width:100%; box-sizing:border-box; padding:12px; border-radius:10px; border:2px solid #8e2de2; background:#1a1a2e; color:#fff; margin-bottom:8px;" />
+    <input id="auth-pass" type="password" maxlength="32" placeholder="비밀번호 (4자 이상)"
+      style="width:100%; box-sizing:border-box; padding:12px; border-radius:10px; border:2px solid #8e2de2; background:#1a1a2e; color:#fff; margin-bottom:8px;" />
+    <input id="auth-pass2" type="password" maxlength="32" placeholder="비밀번호 확인 (가입 시)"
+      style="width:100%; box-sizing:border-box; padding:12px; border-radius:10px; border:2px solid #8e2de2; background:#1a1a2e; color:#fff; margin-bottom:8px; display:none;" />
+    <p id="auth-msg" style="text-align:center; color:#ff9a9a; font-size:0.85rem; min-height:1.2em;"></p>
+    <button class="btn btn-gold" id="auth-submit" style="margin-top:8px;" onclick="submitAuth()">로그인</button>
+    <p id="auth-mode-hint" style="text-align:center; opacity:0.55; font-size:0.75rem; margin-top:12px;">Supabase 설정 후 클라우드 계정 사용</p>
+  </div>
+
+  <!-- 1. 메인 -->
+  <div id="select-screen" class="screen">
+    <h1>⚔️ 검 vs 지팡이</h1>
+    <p style="text-align:center; opacity:0.8; margin-bottom:8px;">강화하고 1:1 대결!</p>
+    <p id="nick-display" style="text-align:center; color:#ffd700; font-size:0.95rem; margin-bottom:12px;"></p>
+    <button class="btn btn-gold" style="margin-top:8px; font-size:1.15rem;" onclick="openPlayMenu()">▶️ 플레이</button>
+    <button class="btn btn-super" style="margin-top:12px;" onclick="openShop()">🛒 상점</button>
+    <button class="btn" style="margin-top:12px; background:linear-gradient(135deg,#434343,#000000);" onclick="openEtcMenu()">⚙️ 기타</button>
+    <p id="record-summary" style="text-align:center; margin-top:16px; opacity:0.75; font-size:0.9rem;"></p>
+    <p id="creator-credit" onclick="onCreatorClick()" style="text-align:center; margin-top:18px; opacity:0.55; font-size:0.8rem; cursor:pointer; user-select:none;">제작자: Lost Ruby</p>
+  </div>
+
+  <!-- 기타 -->
+  <div id="etc-screen" class="screen">
+    <h2 style="text-align:center;">⚙️ 기타</h2>
+    <button class="btn" style="margin-top:12px; background:linear-gradient(135deg,#2b5876,#4e4376);" onclick="openMissions()">📋 미션</button>
+    <button class="btn" style="margin-top:12px; background:linear-gradient(135deg,#4a5568,#2d3748);" onclick="openCodex()">🏅 도감</button>
+    <button class="btn" style="margin-top:12px; background:linear-gradient(135deg,#11998e,#38ef7d);" onclick="openHelp()">📖 효과·능력 설명</button>
+    <button class="btn" style="margin-top:12px; background:linear-gradient(135deg,#667eea,#764ba2);" onclick="openStory()">📜 스토리</button>
+    <div style="flex:1; min-height:48px;"></div>
+    <button class="btn btn-danger" style="margin-top:28px;" onclick="logoutAccount()">로그아웃</button>
+    <button class="btn" style="margin-top:12px; margin-bottom:8px;" onclick="showScreen('select-screen')">← 메인으로</button>
+  </div>
+
+  <!-- 효과·능력 설명 -->
+  <div id="help-screen" class="screen">
+    <h2 style="text-align:center;">📖 효과·능력 설명</h2>
+    <div id="help-list" style="overflow-y:auto; max-height:72vh; padding:4px 2px;"></div>
+    <button class="btn" style="margin-top:12px;" onclick="showScreen('etc-screen')">← 기타로</button>
+  </div>
+
+  <!-- 스토리 -->
+  <div id="story-screen" class="screen">
+    <h2 style="text-align:center;">📜 스토리</h2>
+    <div id="story-list" style="overflow-y:auto; max-height:72vh; padding:4px 2px;"></div>
+    <button class="btn" style="margin-top:12px;" onclick="showScreen('etc-screen')">← 기타로</button>
+  </div>
+
+  <!-- 보스 선택 -->
+  <div id="raid-pick-screen" class="screen">
+    <h2 style="text-align:center;">👹 보스전</h2>
+    <p style="text-align:center; opacity:0.85; font-size:0.9rem; margin-bottom:12px;">상대 보스를 선택하세요<br><span style="opacity:0.7;font-size:0.8rem;">(상세 설정은 추후 업데이트)</span></p>
+    <div class="class-cards" style="margin-bottom:12px;">
+      <div class="class-card" id="raid-boss-mage" onclick="selectRaidBoss('ancient_mage')">
+        <div class="class-icon">🧙</div>
+        <div class="class-name">고대 마법사</div>
+        <div class="class-desc">오래전 세계를 주름잡던<br>대마법사. 설정 미정</div>
+      </div>
+      <div class="class-card" id="raid-boss-god" onclick="selectRaidBoss('fallen_god')">
+        <div class="class-icon">🌑</div>
+        <div class="class-name">몰락한 신</div>
+        <div class="class-desc">추락한 신의 잔해.<br>설정 미정</div>
+      </div>
+    </div>
+    <p id="raid-pick-label" style="text-align:center; color:#ffd700; min-height:1.2em; margin-bottom:8px;"></p>
+    <button class="btn btn-danger" id="raid-start-btn" style="margin-top:8px;" disabled onclick="confirmRaidBoss()">이 보스로 도전</button>
+    <button class="btn" style="margin-top:10px;" onclick="showScreen('play-menu-screen')">← 플레이로</button>
+  </div>
+
+  <!-- 미션 -->
+  <div id="mission-screen" class="screen">
+    <h2 style="text-align:center;">📋 미션</h2>
+    <p id="mission-date" style="text-align:center; opacity:0.75; font-size:0.85rem; margin-bottom:10px;"></p>
+    <div id="mission-list" style="overflow-y:auto; max-height:65vh;"></div>
+    <button class="btn" style="margin-top:14px;" onclick="showScreen('etc-screen')">← 기타로</button>
+  </div>
+
+  <!-- 상점 -->
+  <div id="shop-screen" class="screen">
+    <h2 style="text-align:center;">🛒 상점</h2>
+    <p id="shop-lr" style="text-align:center; color:#ffd700; margin-bottom:12px;">보유 LR: 0</p>
+    <div id="shop-list" style="overflow-y:auto; max-height:65vh;"></div>
+    <button class="btn" style="margin-top:14px;" onclick="showScreen('select-screen')">← 메인으로</button>
+  </div>
+
+  <!-- 플레이 메뉴: 이벤트 / 강화 / 결투 -->
+  <div id="play-menu-screen" class="screen">
+    <h2 style="text-align:center;">▶️ 플레이</h2>
+    <p style="text-align:center; opacity:0.8; font-size:0.9rem; margin-bottom:12px;">모드를 선택하세요</p>
+    <div class="class-cards" id="class-cards-wrap">
+      <div class="class-card" data-cls="sword" id="cls-sword" onclick="selectClass('sword')">
+        <div class="class-icon">🗡️</div>
+        <div class="class-name">검사</div>
+        <div class="class-desc">시작 체력 250<br>근접 물리 특화</div>
+      </div>
+      <div class="class-card" data-cls="mage" id="cls-mage" onclick="selectClass('mage')">
+        <div class="class-icon">🪄</div>
+        <div class="class-name">마법사</div>
+        <div class="class-desc">시작 체력 150<br>원거리 마법 특화</div>
+      </div>
+      <div class="class-card" data-cls="assassin" id="cls-assassin" onclick="selectClass('assassin')" style="display:none;">
+        <div class="class-icon">🗡️</div>
+        <div class="class-name">암살자</div>
+        <div class="class-desc">시작 체력 180<br>즉사·암살 특화</div>
+      </div>
+      <div class="class-card" data-cls="priest" id="cls-priest" onclick="selectClass('priest')" style="display:none;">
+        <div class="class-icon">✝️</div>
+        <div class="class-name">성직자</div>
+        <div class="class-desc">시작 체력 200<br>회복·정화 특화</div>
+      </div>
+      <div class="class-card" data-cls="archer" id="cls-archer" onclick="selectClass('archer')" style="display:none;">
+        <div class="class-icon">🏹</div>
+        <div class="class-name">궁수</div>
+        <div class="class-desc">시작 체력 170<br>연사·원거리 특화</div>
+      </div>
+    </div>
+    <button class="btn" id="start-btn" style="margin-top:16px;" disabled onclick="startEnhance()">⚔️ 강화 대결</button>
+    <button class="btn btn-danger" style="margin-top:10px;" onclick="openRaidBossMode()">👹 보스전</button>
+    <button class="btn" style="margin-top:10px; background:linear-gradient(135deg,#a8e063,#56ab2f); color:#0b1a0b; font-weight:800;" onclick="openBossMode()">🎭 이벤트전: 시이다 케인</button>
+    <button class="btn btn-super" style="margin-top:10px;" onclick="openChallengeMenu()">⚔️ 결투방</button>
+    <button class="btn" style="margin-top:14px;" onclick="showScreen('select-screen')">← 메인으로</button>
+  </div>
+
+
+  <!-- 결투방 메뉴 -->
+  <div id="challenge-menu-screen" class="screen">
+    <h2 style="text-align:center;">⚔️ 결투방</h2>
+    <p style="text-align:center; opacity:0.8; font-size:0.9rem; margin-bottom:8px;">실시간 대결 · 승리 시 100 LR</p>
+    <p id="lr-display-menu" style="text-align:center; color:#ffd700; margin-bottom:12px;"></p>
+    <button class="btn btn-success" onclick="rtCreateRoom()">🟢 방 만들기 (실시간)</button>
+    <button class="btn btn-super" style="margin-top:10px;" onclick="showScreen('rt-join-screen')">🔵 방 참가 (실시간)</button>
+    <button class="btn btn-gold" style="margin-top:10px;" onclick="openRanking()">🏆 랭킹</button>
+    <p style="text-align:center; opacity:0.55; font-size:0.75rem; margin-top:14px;">오프라인 연습용 코드 결투</p>
+    <button class="btn" style="margin-top:6px;" onclick="startChallengeCreate()">📤 코드 결투 만들기</button>
+    <button class="btn" style="margin-top:6px;" onclick="showScreen('challenge-accept-screen')">📥 코드 결투 수락</button>
+    <button class="btn" style="margin-top:14px;" onclick="showScreen('play-menu-screen')">← 플레이로</button>
+  </div>
+
+  <div id="rt-host-screen" class="screen">
+    <h2 style="text-align:center;">🟢 방 생성</h2>
+    <p style="text-align:center; opacity:0.85;">방 코드를 상대에게 알려주세요</p>
+    <p id="rt-room-code" style="text-align:center; font-size:2rem; color:#ffd700; font-weight:900; letter-spacing:4px; margin:16px 0;">------</p>
+    <p id="rt-host-status" style="text-align:center; opacity:0.9;">연결 대기 중...</p>
+    <button class="btn" style="margin-top:8px;" onclick="copyRtRoomCode()">방 코드 복사</button>
+    <button class="btn btn-danger" style="margin-top:8px;" onclick="rtLeave()">방 나가기</button>
+  </div>
+
+  <div id="rt-join-screen" class="screen">
+    <h2 style="text-align:center;">🔵 방 참가</h2>
+    <input id="rt-join-input" type="text" maxlength="8" placeholder="방 코드 6자리"
+      style="width:100%; padding:12px; border-radius:10px; border:2px solid #8e2de2; background:#1a1a2e; color:#fff; font-size:1.2rem; text-align:center; letter-spacing:3px; box-sizing:border-box; text-transform:uppercase;" />
+    <p id="rt-join-status" style="text-align:center; margin-top:10px; opacity:0.85;"></p>
+    <button class="btn btn-success" style="margin-top:12px;" onclick="rtJoinRoom()">참가</button>
+    <button class="btn" style="margin-top:8px;" onclick="showScreen('challenge-menu-screen')">돌아가기</button>
+  </div>
+
+  <div id="rt-lobby-screen" class="screen">
+    <h2 style="text-align:center;">⚔️ 결투 로비</h2>
+    <p id="rt-lobby-info" style="text-align:center; margin-bottom:10px;"></p>
+    <p id="rt-lobby-status" style="text-align:center; color:#ffd700;"></p>
+    <button class="btn btn-gold" style="margin-top:12px;" onclick="rtGoEnhance()">강화하러 가기</button>
+    <button class="btn btn-success" style="margin-top:8px;" id="rt-ready-btn" onclick="rtToggleReady()">준비 완료</button>
+    <button class="btn btn-danger" style="margin-top:8px;" onclick="rtLeave()">나가기</button>
+  </div>
+
+
+  <div id="challenge-accept-screen" class="screen">
+    <h2 style="text-align:center;">📥 결투 수락</h2>
+    <p style="text-align:center; opacity:0.8; font-size:0.85rem; margin-bottom:10px;">상대 결투 코드를 붙여넣으세요</p>
+    <textarea id="challenge-code-input" rows="5" placeholder="결투 코드"
+      style="width:100%; padding:12px; border-radius:12px; border:2px solid #8e2de2; background:#1a1a2e; color:#fff; font-size:0.8rem; resize:vertical; box-sizing:border-box;"></textarea>
+    <div id="challenge-preview" style="margin-top:10px; padding:10px; background:rgba(0,0,0,0.25); border-radius:10px; font-size:0.9rem; min-height:40px; display:none;"></div>
+    <button class="btn btn-success" style="margin-top:12px;" onclick="parseChallengeCode()">코드 확인</button>
+    <button class="btn btn-gold" style="margin-top:8px;" id="challenge-accept-btn" disabled onclick="acceptChallengeAndPlay()">이 상대로 강화 시작</button>
+    <button class="btn" style="margin-top:8px;" onclick="showScreen('challenge-menu-screen')">돌아가기</button>
+  </div>
+
+  <div id="challenge-create-screen" class="screen">
+    <h2 style="text-align:center;">📤 결투 코드 생성</h2>
+    <p id="challenge-create-info" style="text-align:center; margin-bottom:10px;"></p>
+    <textarea id="challenge-code-out" rows="5" readonly
+      style="width:100%; padding:12px; border-radius:12px; border:2px solid #ffd700; background:#1a1a2e; color:#ffd700; font-size:0.75rem; resize:vertical; box-sizing:border-box;"></textarea>
+    <button class="btn btn-success" style="margin-top:12px;" onclick="copyChallengeCode()">코드 복사</button>
+    <button class="btn btn-gold" style="margin-top:8px;" onclick="goBattle()">이 빌드로 AI와 연습 전투</button>
+    <button class="btn" style="margin-top:8px;" onclick="showScreen('select-screen')">메인으로</button>
+  </div>
+
+
+  <div id="ranking-screen" class="screen">
+    <h2 style="text-align:center;">🏆 LR 랭킹</h2>
+    <p id="rank-my-lr" style="text-align:center; color:#ffd700; margin-bottom:12px;"></p>
+    <div id="rank-list" style="overflow-y:auto; max-height:60vh; padding:4px;"></div>
+    <button class="btn" style="margin-top:14px;" onclick="showScreen('challenge-menu-screen')">돌아가기</button>
+  </div>
+  <!-- 도감 -->
+  <div id="codex-screen" class="screen">
+    <h2 style="text-align:center;">🏅 벳지 도감</h2>
+    <p id="codex-progress" style="text-align:center; opacity:0.85; margin-bottom:12px;"></p>
+    <div id="codex-list" style="overflow-y:auto; max-height:70vh; padding:4px;"></div>
+    <button class="btn" style="margin-top:14px;" onclick="showScreen('etc-screen')">← 기타로</button>
+  </div>
+
+
+  <!-- 이벤트: 무기 2개 선택 -->
+  <div id="boss-pick-screen" class="screen">
+    <h2 style="text-align:center;">🎭 이벤트</h2>
+    <p style="text-align:center; opacity:0.85; margin-bottom:6px;">시이다 케인 · 무기 2개 선택 (같은 직업)</p>
+    <p style="text-align:center; opacity:0.7; font-size:0.85rem; margin-bottom:10px;">검사 체력 750 / 마법사 500 · 죽으면 2번째 무기로 부활</p>
+    <div class="class-cards" style="margin-bottom:10px;">
+      <div class="class-card" id="boss-cls-sword" onclick="bossSelectClass('sword')">
+        <div class="class-icon">🗡️</div>
+        <div class="class-name">검사</div>
+      </div>
+      <div class="class-card" id="boss-cls-mage" onclick="bossSelectClass('mage')">
+        <div class="class-icon">🪄</div>
+        <div class="class-name">마법사</div>
+      </div>
+    </div>
+    <div class="boss-slot" id="boss-slot1">1번 무기: (미선택)</div>
+    <div class="boss-slot" id="boss-slot2">2번 무기: (미선택)</div>
+    <div class="weapon-pick-grid" id="boss-weapon-grid"></div>
+    <button class="btn btn-danger" id="boss-start-btn" style="margin-top:12px;" disabled onclick="startBossBattle()">이벤트 시작</button>
+    <button class="btn" style="margin-top:8px;" onclick="showScreen('play-menu-screen')">← 플레이로</button>
+  </div>
+
+  <!-- 2. 강화 화면 -->
+  <div id="enhance-screen" class="screen">
+    <h2>무기 강화</h2>
+    <div class="weapon-display">
+      <div class="weapon-name" id="w-name">목검</div>
+      <div class="weapon-level" id="w-level">+0</div>
+      <div class="weapon-atk" id="w-atk">공격력 0</div>
+      <div class="weapon-atk" id="w-desc" style="color:#ffd700; font-size:0.9rem; margin-top:4px;"></div>
+    </div>
+    <div class="hp-bar-container">
+      <div class="hp-label"><span>체력</span><span id="hp-text">250 / 250</span></div>
+      <div class="hp-bar"><div class="hp-fill" id="hp-fill" style="width:100%"></div></div>
+    </div>
+    <div class="chance-info">남은 기회: <span id="chance">25</span>회</div>
+    <div class="rate-info">다음 성공 확률: <span id="rate">100</span>%</div>
+    <div class="rate-info" style="color:#ff9a9a;">적 예상 강화: <span id="enemy-level-preview">+?</span></div>
+    
+    <button class="btn" onclick="doEnhance('basic')">일반 강화 (기회 2 · 1회 시도)</button>
+    <button class="btn btn-super" onclick="doEnhance('super')">슈퍼 강화 (기회 3 · 확률×1.5 · 1회 시도)</button>
+    <button class="btn btn-gold" style="margin-top:20px;" id="btn-go-battle" onclick="goBattle()">전투 시작!</button>
+    <button class="btn btn-super" style="margin-top:8px;" id="btn-make-challenge" onclick="finishChallengeCreate()">📤 결투 코드 만들기</button>
+
+    <div id="enhance-rt-box" style="margin-top:16px; padding:12px; border:1px solid #5a4a8a; border-radius:12px; background:rgba(80,60,140,0.25);">
+      <div style="font-weight:700; color:#cbb8ff; margin-bottom:6px;">⚡ 실시간 결투</div>
+      <div id="enhance-rt-status" style="font-size:0.8rem; opacity:0.85; margin-bottom:8px;">결투방 연결 후 이 빌드로 준비할 수 있습니다.</div>
+      <button class="btn btn-success" style="margin-top:0; display:none;" id="btn-rt-ready" onclick="rtSubmitBuild()">✅ 이 빌드로 실시간 준비</button>
+      <button class="btn" style="margin-top:6px;" id="btn-rt-open" onclick="openChallengeMenu()">⚔️ 결투방 열기</button>
+    </div>
+  </div>
+
+  <!-- 강화 연출 -->
+  <div id="enhance-anim">
+    <div style="font-size:1.2rem; margin-bottom:10px;">강화 중...</div>
+    <div class="slot-machine"><div class="slot-inner" id="slot">?</div></div>
+    <div class="result-text" id="result-text"></div>
+  </div>
+
+  <!-- 3. 전투 화면 -->
+  <div id="battle-screen" class="screen">
+    <div class="battle-header">
+      <div class="fighter player">
+        <div class="fighter-name" id="p-name">나 (검사)</div>
+        <div class="fighter-weapon" id="p-weapon">목검 +0</div>
+        <div class="fighter-weapon" id="p-desc" style="font-size:0.7rem; color:#aaa; min-height:16px;"></div>
+        <div class="status-icons" id="p-status" style="font-size:1.1rem; min-height:22px; margin-top:2px;"></div>
+        <div class="hp-bar-container" style="margin:8px 0;">
+          <div class="hp-label" style="font-size:0.75rem;"><span>HP</span><span id="p-hp-text">250</span></div>
+          <div class="hp-bar" style="height:14px;"><div class="hp-fill" id="p-hp-fill" style="width:100%"></div></div>
+        </div>
+      </div>
+      <div class="vs">VS</div>
+      <div class="fighter enemy">
+        <div class="fighter-name" id="e-name">적 (마법사)</div>
+        <div class="fighter-weapon" id="e-weapon">나무 지팡이 +0</div>
+        <div class="fighter-weapon" id="e-desc" style="font-size:0.7rem; color:#aaa; min-height:16px;"></div>
+        <div class="status-icons" id="e-status" style="font-size:1.1rem; min-height:22px; margin-top:2px;"></div>
+        <div class="hp-bar-container" style="margin:8px 0;">
+          <div class="hp-label" style="font-size:0.75rem;"><span>HP</span><span id="e-hp-text">100</span></div>
+          <div class="hp-bar" style="height:14px;"><div class="hp-fill" id="e-hp-fill" style="width:100%; background:linear-gradient(90deg,#c31432,#ff4b2b);"></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="battle-log" id="battle-log"></div>
+    <button class="btn" id="atk-btn" onclick="playerAttack()">공격!</button>
+    <button class="btn btn-danger" id="auto-btn" onclick="toggleAuto()" style="display:none;">자동 전투</button>
+    <button class="btn" id="surrender-btn" style="margin-top:8px; background:linear-gradient(135deg,#555,#333); display:none;" onclick="surrenderBattle()">🏳️ 항복</button>
+    <button class="btn btn-danger" id="btn-force-exit" style="margin-top:8px; font-size:0.85rem;" onclick="forceExitBattle()">전투 강제 종료 (멈춤 시)</button>
+  </div>
+
+  <!-- 능력 팝업 -->
+  <div id="ability-popup">
+    <div class="ability-box">
+      <div class="ability-title" id="ab-title">능력 발동!</div>
+      <div class="ability-desc" id="ab-desc"></div>
+    </div>
+  </div>
+
+  <!-- 특수 이펙트 -->
+  <div id="fx-overlay"></div>
+
+  <!-- 4. 결과 -->
+  <div id="result-screen" class="screen result-screen">
+    <div class="result-title" id="result-title">승리!</div>
+    <p id="result-desc" style="margin-bottom:16px; opacity:0.9; white-space:pre-line;"></p>
+    <div id="new-badges" style="margin-bottom:16px;"></div>
+    <button class="btn btn-success" onclick="restartGame()">다시 하기</button>
+    <button class="btn" style="margin-top:8px;" onclick="goMainMenu()">메인으로</button>
+    <button class="btn btn-gold" style="margin-top:8px;" onclick="openCodex()">도감 보기</button>
+  </div>
+
+  <!-- 벳지 획득 팝업 -->
+  <div id="badge-popup" style="display:none; position:absolute; inset:0; background:rgba(0,0,0,0.85); z-index:400; justify-content:center; align-items:center; flex-direction:column;">
+    <div style="background:linear-gradient(145deg,#1a1a2e,#302b63); border:3px solid #ffd700; border-radius:20px; padding:28px 32px; text-align:center; max-width:90%;">
+      <div style="font-size:1.3rem; color:#ffd700; font-weight:900; margin-bottom:10px;">🏅 벳지 획득!</div>
+      <div id="badge-popup-list"></div>
+      <button class="btn btn-gold" style="margin-top:16px;" onclick="closeBadgePopup()">확인</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ========== 데이터 ==========
+const SWORD = [
+  { name: "목검", atk: 7, desc: "" },
+  { name: "돌검", atk: 15, lifesteal: 0.175, desc: "흡혈 17.5%(확정)" },
+  { name: "철검", atk: 10, awakenChance: 0.04, desc: "4% 각성→엑스칼리버" },
+  { name: "화검", atk: 10, fire: true, fireRate: 0.35, desc: "35% 화염(2턴: 현재HP2%+회복반감)" },
+  { name: "백사의 침", atk: 15, extra: 20, extraRate: 0.10, paralyze: 0.35, desc: "10%추가20뎀 · 마비35%" },
+  { name: "공허의 대검", atk: 10, corrupt: true, desc: "부패 확정" },
+  { name: "성검", atk: 40, purify: 0.35, magicResistPct: 0.30, desc: "정화 35% · 마법 데미지 30% 감소" },
+  { name: "세계를 가르는 검", atk: 35, instant: 0.125, instantLow: 0.20, desc: "참격12.5% · HP30%↓시20%" },
+  { name: "몰락한 신의 검", atk: 30, absorb: 0.05, halfkill: 0.15, desc: "흡수5% · 몰락의밤15%" },
+  { name: "신의 유산", atk: 35, revive: true, lastsupper: 0.45, desc: "부활 · 최후의만찬(받은피해45%, 내HP10%↓시 불가)" }
+];
+
+const EXCALIBUR = {
+  name: "엑스칼리버", atk: 45, instant: 0.75, lastStand: true, desc: "즉사75% · 최후의저항 · 2턴 후 파괴"
+};
+const GUARDIAN = {
+  name: "수호천사", atk: 25, heal: 20, guardianPassive: true, guardianRevive: true,
+  desc: "매턴 보호막+50(중첩) · 25%부활 1회"
+};
+
+const STAFF = [
+  { name: "나무 지팡이", atk: 5, seal: 0.02, desc: "2% 봉인" },
+  { name: "성스러운 지팡이", atk: 10, curse: 0.15, desc: "15% 저주(능력제한·뎀30%↓)" },
+  { name: "세계수의 지팡이", atk: 15, mirror: 0.20, desc: "20% 미러링" },
+  { name: "괴략의 대가의 지팡이", atk: 10, instant: 0.005, double: 0.10, corrupt: 0.15, desc: "0.5%즉사 · 10%이중 · 15%부패" },
+  { name: "성자의 지팡이", atk: 20, heal: 20, shield: true, guardianAwaken: 0.025, desc: "매턴+20 · 보호막250 · 2.5%각성→수호천사" },
+  { name: "암흑의 지팡이", atk: 40, corrupt: 0.20, fall: 0.30, desc: "20%부패 · 타락30%" },
+  { name: "대마법사의 지팡이", atk: 125, desc: "순수 화력" },
+  { name: "은하의 보물", atk: 30, instantCond: 0.25, desc: "초신성 폭발(HP60%↓ 25%즉사)" },
+  { name: "대우주의 산물", atk: 40, corrupt: true, desc: "부패 확정" },
+  { name: "신의 눈물", atk: 50, nullify: 0.50, dodge: 0.50, desc: "피격 시 50%능력무효 · 50%공격무시(즉사불가피)" }
+];
+
+// 해금 직업 무기
+const ASSASSIN = [
+  { name: "녹슨 단검", atk: 8, desc: "" },
+  { name: "그림자 단검", atk: 12, lifesteal: 0.12, desc: "흡혈 12%" },
+  { name: "독니", atk: 11, fire: true, fireRate: 0.25, desc: "25% 독(화염 효과)" },
+  { name: "침묵의 칼", atk: 14, paralyze: 0.22, desc: "마비 22%" },
+  { name: "암살 단검", atk: 18, extra: 25, extraRate: 0.15, desc: "15% 추가 25뎀" },
+  { name: "피의 계약", atk: 16, corrupt: 0.25, desc: "25% 부패" },
+  { name: "처형자의 칼", atk: 28, instant: 0.08, desc: "즉사 8%" },
+  { name: "밤의 장막", atk: 22, dodge: 0.20, nullify: 0.15, desc: "피격 20%회피 · 15%무효" },
+  { name: "심연의 송곳", atk: 32, halfkill: 0.12, absorb: 0.04, desc: "절반삭제 12% · 흡수4%" },
+  { name: "사신의 낫", atk: 38, instant: 0.10, revive: true, desc: "즉사10% · 부활1회" }
+];
+const PRIEST = [
+  { name: "나무 십자가", atk: 6, desc: "" },
+  { name: "축복의 지팡이", atk: 9, heal: 8, desc: "매턴 +8" },
+  { name: "정화의 종", atk: 11, purify: 0.30, desc: "정화 30%" },
+  { name: "성수의 병", atk: 13, shield: true, desc: "긴급 보호막" },
+  { name: "치유의 성서", atk: 15, heal: 18, desc: "매턴 +18" },
+  { name: "심판의 빛", atk: 24, extra: 15, extraRate: 0.20, desc: "20% 추가 15뎀" },
+  { name: "대주교의 지팡이", atk: 30, purify: 0.40, magicResistPct: 0.25, desc: "정화40% · 마법저항25%" },
+  { name: "기적의 성배", atk: 20, heal: 25, shield: true, desc: "매턴+25 · 보호막" },
+  { name: "천사의 축복", atk: 28, heal: 15, lastsupper: 0.25, desc: "매턴+15 · 만찬25%" },
+  { name: "신의 가호", atk: 35, revive: true, nullify: 0.35, dodge: 0.25, desc: "부활 · 무효35% · 회피25%" }
+];
+const ARCHER = [
+  { name: "나무 활", atk: 9, desc: "" },
+  { name: "사냥꾼의 활", atk: 13, double: 0.12, desc: "12% 이중" },
+  { name: "바람의 활", atk: 15, paralyze: 0.18, desc: "마비 18%" },
+  { name: "불화살", atk: 14, fire: true, fireRate: 0.30, desc: "30% 화염" },
+  { name: "연사 활", atk: 16, double: 0.28, desc: "28% 이중" },
+  { name: "독화살", atk: 18, corrupt: 0.22, desc: "22% 부패" },
+  { name: "저격 활", atk: 35, extra: 30, extraRate: 0.18, desc: "18% 추가 30뎀" },
+  { name: "폭풍의 활", atk: 28, double: 0.35, paralyze: 0.12, desc: "이중35% · 마비12%" },
+  { name: "달빛 활", atk: 32, absorb: 0.05, instant: 0.06, desc: "흡수5% · 즉사6%" },
+  { name: "신궁", atk: 40, double: 0.25, instant: 0.08, lastsupper: 0.20, desc: "이중25% · 즉사8% · 만찬20%" }
+];
+
+function classLabel(cls) {
+  return ({ sword: '검사', mage: '마법사', assassin: '암살자', priest: '성직자', archer: '궁수' })[cls] || cls;
+}
+function isMagicClass(cls) {
+  return cls === 'mage' || cls === 'priest';
+}
+
+// ========== 상태 ==========
+let playerClass = null; // sword | mage | assassin | priest | archer
+let level = 0;          // 0~10
+let hp = 0;
+let maxHp = 0;
+let chances = 25;
+let enemyPreviewLevel = 1; // 강화 화면에 보여줄 적 레벨
+let successRate = 100;
+let enemy = null;       // { class, level, hp, maxHp, weapon, ... }
+let battleTurn = 0;
+let playerRevived = false;
+let fireTurns = 0;      // 화염 남은 턴
+let enemyTurnCount = 0; // 은하의 보물용
+let autoMode = false;
+let battleEnded = false;
+let playerFall = false;
+let enemyFall = false;
+let playerParalyzed = false;
+let enemyParalyzed = false;
+let playerPurifyNext = false;
+let enemyPurifyNext = false;
+let lastDamageTaken = 0;
+let defeatReason = '';
+let playerAwakened = false;
+let enemyAwakened = false;
+let playerAwakenType = null; // 'excalibur' | 'guardian'
+let enemyAwakenType = null;
+let playerExcalTurns = 0;
+let enemyExcalTurns = 0;
+let playerLastStandUsed = false;
+let enemyLastStandUsed = false;
+let playerCursed = 0; // 0~2 중첩
+let enemyCursed = 0;
+let playerMirror = false;
+let enemyMirror = false;
+let playerSealed = false;
+let enemySealed = false;
+let playerShield = 0;  // 성자 보호막 잔량
+let enemyShield = 0;
+let playerShieldUsed = false; // 1회성 보호막 발동 여부
+let enemyShieldUsed = false;
+
+// 이벤트(구 보스전)
+let gameMode = 'normal'; // 'normal' | 'boss' | 'raid'
+let pendingRaidBoss = false; // 강화 후 보스전 진입
+let selectedRaidBossId = null; // 'ancient_mage' | 'fallen_god'
+const RAID_BOSSES = {
+  ancient_mage: {
+    id: 'ancient_mage',
+    name: '고대 마법사',
+    atk: 65,
+    hp: 850,
+    weaponName: '고대의 지팡이',
+    desc: '설정 미정 (임시 스탯)'
+  },
+  fallen_god: {
+    id: 'fallen_god',
+    name: '몰락한 신',
+    atk: 80,
+    hp: 1000,
+    weaponName: '몰락의 검',
+    desc: '설정 미정 (임시 스탯)'
+  }
+};
+let bossPickClass = null;
+let bossPicks = []; // [level1, level2] 1~10
+let bossWeaponIndex = 0;
+let bossForm = 1; // 1 시이다 케인, 2 2차폼
+let bossAttackCount = 0;
+let bossIgnoreAttacks = false; // 그림자 암살자: 3공격 후 확정 회피
+let playerWeaponSwitched = false;
+
+// 결투방
+let challengeMode = false;
+let challengeCreating = false;
+let challengeEnemyData = null;
+let pendingChallenge = null;
+
+// 실시간 (PeerJS)
+let rtPeer = null;
+let rtConn = null;
+let rtIsHost = false;
+let rtRoomId = null;
+let rtConnected = false;
+let rtMyReady = false;
+let rtOppReady = false;
+let rtOppBuild = null;
+let rtMyTurn = false;
+let rtActive = false;
+let rtOppNick = '';
+let rtEnhanceStarted = false; // 결투 강화 세션 시작 여부
+let rtBuildLocked = false;    // 준비 완료 후 재강화 금지
+
+
+// ========== 벳지 / 기록 ==========
+const BADGE_DEFS = [
+  // 검 무기
+  { id: 'sw1', icon: '🪵', name: '이정도로도 이기지', desc: '목검(+1)으로 승리', cat: 'weapon' },
+  { id: 'sw2', icon: '🪨', name: '석기시대', desc: '돌검(+2)으로 승리', cat: 'weapon' },
+  { id: 'sw3', icon: '⚔️', name: '날카롭지?', desc: '철검(+3)으로 승리', cat: 'weapon' },
+  { id: 'sw4', icon: '🔥', name: '익혀드세요', desc: '화검(+4)으로 승리', cat: 'weapon' },
+  { id: 'sw5', icon: '🐍', name: '뱀의 머리라...', desc: '백사의 침(+5)으로 승리', cat: 'weapon' },
+  { id: 'sw6', icon: '🌑', name: '무에서 유를 창조한다라..', desc: '공허의 대검(+6)으로 승리', cat: 'weapon' },
+  { id: 'sw7', icon: '✝️', name: '신성하고 로마이며 제국이다', desc: '성검(+7)으로 승리', cat: 'weapon' },
+  { id: 'sw8', icon: '🗡️', name: '세계를 갈라주지..!', desc: '세계를 가르는 검(+8)으로 승리', cat: 'weapon' },
+  { id: 'sw9', icon: '🌑', name: '대몰락은 아직 끝나지않았어..!', desc: '몰락한 신의 검(+9)으로 승리', cat: 'weapon' },
+  { id: 'sw10', icon: '👑', name: '나는 처음이자 마지막이다', desc: '신의 유산(+10)으로 승리', cat: 'weapon' },
+  // 지팡이
+  { id: 'st1', icon: '🌳', name: '고대 마법사의 유물', desc: '나무 지팡이(+1)으로 승리', cat: 'weapon' },
+  { id: 'st2', icon: '✨', name: '이름이랑 반대군', desc: '성스러운 지팡이(+2)으로 승리', cat: 'weapon' },
+  { id: 'st3', icon: '🌿', name: '가이아의 축복', desc: '세계수의 지팡이(+3)으로 승리', cat: 'weapon' },
+  { id: 'st4', icon: '📜', name: '지혜의 산물', desc: '괴략의 대가의 지팡이(+4)으로 승리', cat: 'weapon' },
+  { id: 'st5', icon: '🕊️', name: '성지순례', desc: '성자의 지팡이(+5)으로 승리', cat: 'weapon' },
+  { id: 'st6', icon: '😈', name: '빛에 숨다니.. 어리석긴', desc: '암흑의 지팡이(+6)으로 승리', cat: 'weapon' },
+  { id: 'st7', icon: '🔮', name: '대마법사의 증표', desc: '대마법사의 지팡이(+7)으로 승리', cat: 'weapon' },
+  { id: 'st8', icon: '🌌', name: '사건의 지평선', desc: '은하의 보물(+8)으로 승리', cat: 'weapon' },
+  { id: 'st9', icon: '💥', name: '빅뱅 그 자체', desc: '대우주의 산물(+9)으로 승리', cat: 'weapon' },
+  { id: 'st10', icon: '💧', name: '신의 눈물을 흘리게 한자', desc: '신의 눈물(+10)으로 승리', cat: 'weapon' },
+  // 특수
+  { id: 'sp_comeback', icon: '🩸', name: '역전의 영웅', desc: '체력 10% 이하에서 승리', cat: 'special' },
+  { id: 'sp_awaken', icon: '⚔️', name: '각성의 순간', desc: '각성 후 승리', cat: 'special' },
+  { id: 'sp_oneshot', icon: '💀', name: '단 한방..!', desc: '즉사/봉인/참격/초신성으로 승리', cat: 'special' },
+  { id: 'sp_perfect', icon: '✨', name: '무결점', desc: '한 대도 안 맞고 승리', cat: 'special' },
+  { id: 'sp_high', icon: '⬆️', name: '고강화 정복', desc: '+9 이상 무기로 승리', cat: 'special' },
+  { id: 'sp_low', icon: '⬇️', name: '저강화의 기적', desc: '+3 이하로 승리', cat: 'special' },
+  { id: 'sp_shield', icon: '🛡️', name: '성스러운자의 축복', desc: '보호막 발동 후 승리', cat: 'special' },
+  { id: 'sp_streak5', icon: '🍀', name: '행운의 아이', desc: '5연승', cat: 'special' },
+  { id: 'sp_streak10', icon: '🏆', name: '전설', desc: '10연승', cat: 'special' },
+  { id: 'boss_win', icon: '👹', name: '시이다 케인 토벌', desc: '이벤트에서 시이다 케인을 쓰러뜨림', cat: 'special' },
+  { id: 'boss_raast', icon: '🩸', name: '그림자의 폭군 처치', desc: '다르킨의 낫 페이즈를 돌파하고 승리', cat: 'special' },
+  { id: 'boss_shadow', icon: '🌑', name: '오만한 그림자 처치', desc: '그림자 암살자 페이즈를 돌파하고 승리', cat: 'special' },
+  { id: 'boss_seal_darkin', icon: '🔒', name: '무기로 다시 돌아가라 다르킨이여...', desc: '봉인으로 다르킨의 낫을 처치', cat: 'hidden' },
+  // 히든
+  { id: 'hd_both10', icon: '💎', name: '완벽', desc: '검사·마법사 둘 다 +10으로 승리', cat: 'hidden' },
+  { id: 'hd_love', icon: '❤️', name: '유지민 사랑해', desc: '도감에서 7강 벳지를 7번 연속 클릭', cat: 'hidden' },
+  { id: 'hd_dot', icon: '⋯', name: '...?', desc: '제작자를 3번 연속 클릭', cat: 'hidden' },
+  { id: 'hd_ban', icon: '🚫', name: '너 밴', desc: '도감에서 5강 벳지를 5번 연속 클릭', cat: 'hidden' },
+  { id: 'sp_guardian', icon: '👼', name: '우리도 한때는 다른이름이였지..', desc: '수호천사로 각성 성공', cat: 'special' },
+];
+
+const STORAGE_KEY = 'sword_mage_badges_v1';
+const ACCOUNTS_KEY = 'sword_mage_accounts_v1';
+const SESSION_KEY = 'sword_mage_session_v1';
+
+// ===== Supabase 설정 =====
+const SUPABASE_URL = 'https://pzhrlwscrjtovhtgrmzg.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_pFMWVGhP0DEa83BWUlP1GQ_1byX-EJf';
+let sbClient = null;
+let sbUserId = null;
+let useCloud = false;
+
+function sbReady() {
+  return !!(SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase && typeof window.supabase.createClient === 'function');
+}
+function initSupabase() {
+  useCloud = false;
+  sbClient = null;
+  if (!sbReady()) return false;
+  try {
+    sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    useCloud = true;
+    return true;
+  } catch (e) {
+    console.warn('Supabase init fail', e);
+    useCloud = false;
+    return false;
+  }
+}
+async function cloudLoadProfile(userId) {
+  const { data, error } = await sbClient.from('profiles').select('*').eq('id', userId).maybeSingle();
+  if (error) throw error;
+  return data;
+}
+async function cloudSaveProfile() {
+  if (!useCloud || !sbClient || !sbUserId) return;
+  normalizeMissions();
+  const payload = {
+    id: sbUserId,
+    nick: saveData.nick || '',
+    lr: saveData.lr || 0,
+    lp: saveData.lp || 0,
+    data: saveData,
+    updated_at: new Date().toISOString()
+  };
+  const { error } = await sbClient.from('profiles').upsert(payload, { onConflict: 'id' });
+  if (error) console.warn('cloud save', error);
+}
+async function cloudNickTaken(nick) {
+  const { data, error } = await sbClient.from('profiles').select('id').eq('nick', nick).maybeSingle();
+  if (error) return false;
+  return !!(data && data.id && data.id !== sbUserId);
+}
+
+function defaultSaveData(nick) {
+  return {
+    badges: {}, wins: 0, losses: 0, streak: 0, winSword10: false, winMage10: false,
+    nick: nick || '', tag: '', lr: 0, lp: 0, rankBoard: [],
+    shop: { goldNick: false, assassin: false, priest: false, archer: false },
+    missions: {
+      day: '',
+      dailyDuel: false,
+      dailyEnhance: false,
+      eventCleared: false,
+      raidCleared: false,
+      badgePaid: {}
+    }
+  };
+}
+let saveData = defaultSaveData('');
+let accountsDB = {}; // nickKey -> { nick, tag, passHash, data }
+let currentUserKey = null;
+let authMode = 'login'; // login | register
+let shopBuff = { extraChances: 0, bonusHp: 0 };
+
+function getBaseHp(cls) {
+  if (cls === 'sword') return 250;
+  if (cls === 'mage') return 150;
+  if (cls === 'assassin') return 180;
+  if (cls === 'priest') return 200;
+  if (cls === 'archer') return 170;
+  return 150;
+}
+
+const SHOP_ITEMS = [
+  { id: 'lr_to_lp', name: 'LR → LP 교환', desc: '100 LR → 10 LP', price: 100, currency: 'lr', type: 'exchange' },
+  { id: 'gold_nick', name: '골드 닉네임', desc: '닉네임 금색 강조 (영구)', price: 150, currency: 'lp', type: 'perm' },
+  { id: 'nick_change', name: '닉네임 변경권', desc: '닉네임을 다시 설정', price: 100, currency: 'lp', type: 'consumable' },
+  { id: 'unlock_priest', name: '성직자 해금', desc: '성직자 직업 사용 가능', price: 500, currency: 'lp', type: 'unlock' },
+  { id: 'unlock_archer', name: '궁수 해금', desc: '궁수 직업 사용 가능', price: 500, currency: 'lp', type: 'unlock' },
+  { id: 'unlock_as', name: '암살자 해금', desc: '암살자 직업 사용 가능', price: 6767, currency: 'lp', type: 'unlock' }
+];
+let battleFlags = { tookDamage: false, minHpRatio: 1, awakened: false, shieldUsed: false };
+let pendingNewBadges = [];
+let click7Count = 0;
+let click7Timer = null;
+let click5Count = 0;
+let click5Timer = null;
+let creatorClickCount = 0;
+let creatorClickTimer = null;
+
+function nickKey(n) {
+  return (n || '').trim().toLowerCase();
+}
+function randomTag() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let t = '';
+  for (let i = 0; i < 4; i++) t += chars[Math.floor(Math.random() * chars.length)];
+  return t;
+}
+function displayNick() {
+  // 태그는 내부용, 화면에는 닉네임만
+  return (saveData.nick || '').trim() || '익명';
+}
+async function hashPass(pw) {
+  try {
+    const enc = new TextEncoder().encode('smg:' + pw);
+    const buf = await crypto.subtle.digest('SHA-256', enc);
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch (e) {
+    // fallback
+    let h = 2166136261;
+    const s = 'smg:' + pw;
+    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return 'f' + (h >>> 0).toString(16);
+  }
+}
+function loadAccountsDB() {
+  try {
+    const raw = localStorage.getItem(ACCOUNTS_KEY);
+    if (raw) accountsDB = JSON.parse(raw) || {};
+  } catch (e) { accountsDB = {}; }
+}
+function persistAccountsDB() {
+  try { localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accountsDB)); } catch (e) {}
+}
+function normalizeMissions() {
+  if (!saveData.missions) {
+    saveData.missions = { day: '', dailyDuel: false, dailyEnhance: false, eventCleared: false, raidCleared: false, badgePaid: {} };
+  }
+  if (!saveData.missions.badgePaid) saveData.missions.badgePaid = {};
+  if (typeof saveData.missions.raidCleared !== 'boolean') saveData.missions.raidCleared = false;
+  if (typeof saveData.missions.eventCleared !== 'boolean') saveData.missions.eventCleared = false;
+  const today = missionToday();
+  if (saveData.missions.day !== today) {
+    saveData.missions.day = today;
+    saveData.missions.dailyDuel = false;
+    saveData.missions.dailyEnhance = false;
+  }
+}
+function missionToday() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function loadSave() {
+  initSupabase();
+  loadAccountsDB();
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw && Object.keys(accountsDB).length === 0) {
+      const old = JSON.parse(raw);
+      if (old && (old.nick || old.lr || old.badges)) {
+        window.__legacySave = old;
+      }
+    }
+  } catch (e) {}
+  // 로컬 세션 복구 (클라우드 세션은 restoreCloudSession에서)
+  if (!useCloud) {
+    try {
+      const sess = localStorage.getItem(SESSION_KEY);
+      if (sess && accountsDB[sess]) {
+        currentUserKey = sess;
+        saveData = Object.assign(defaultSaveData(''), accountsDB[sess].data || {});
+        saveData.nick = accountsDB[sess].nick || saveData.nick;
+        saveData.tag = accountsDB[sess].tag || saveData.tag || '';
+        normalizeMissions();
+      }
+    } catch (e) {}
+  }
+  updateRecordSummary();
+  const hint = $('auth-mode-hint');
+  if (hint) {
+    hint.textContent = useCloud
+      ? '클라우드 계정 모드 (이메일 로그인)'
+      : '로컬 모드 — Supabase URL/키를 넣으면 클라우드 사용';
+  }
+}
+async function restoreCloudSession() {
+  if (!useCloud || !sbClient) return false;
+  try {
+    const { data: { session } } = await sbClient.auth.getSession();
+    if (!session || !session.user) return false;
+    sbUserId = session.user.id;
+    currentUserKey = 'cloud:' + sbUserId;
+    let row = await cloudLoadProfile(sbUserId);
+    if (row && row.data) {
+      saveData = Object.assign(defaultSaveData(row.nick || ''), row.data);
+      saveData.nick = row.nick || saveData.nick;
+    } else {
+      const metaNick = (session.user.user_metadata && session.user.user_metadata.nick) || '';
+      saveData = defaultSaveData(metaNick);
+      await cloudSaveProfile();
+    }
+    normalizeMissions();
+    updateRecordSummary();
+    return true;
+  } catch (e) {
+    console.warn('restore cloud', e);
+    return false;
+  }
+}
+function persistSave() {
+  normalizeMissions();
+  if (currentUserKey && accountsDB[currentUserKey]) {
+    accountsDB[currentUserKey].data = JSON.parse(JSON.stringify(saveData));
+    accountsDB[currentUserKey].nick = saveData.nick;
+    if (saveData.tag) accountsDB[currentUserKey].tag = saveData.tag;
+    persistAccountsDB();
+  }
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(saveData)); } catch (e) {}
+  if (useCloud && sbUserId) {
+    cloudSaveProfile().catch(e => console.warn(e));
+  }
+  updateRecordSummary();
+}
+function isLoggedIn() {
+  if (useCloud) return !!(sbUserId && currentUserKey);
+  return !!(currentUserKey && accountsDB[currentUserKey]);
+}
+function requireLogin() {
+  if (!isLoggedIn()) {
+    alert('로그인이 필요합니다.');
+    showScreen('auth-screen');
+    return false;
+  }
+  return true;
+}
+function showAuthTab(mode) {
+  authMode = mode === 'register' ? 'register' : 'login';
+  const p2 = $('auth-pass2');
+  if (p2) p2.style.display = authMode === 'register' ? 'block' : 'none';
+  const btn = $('auth-submit');
+  if (btn) btn.textContent = authMode === 'register' ? '회원가입' : '로그인';
+  const msg = $('auth-msg');
+  if (msg) msg.textContent = '';
+  const emailEl = $('auth-email');
+  if (emailEl) emailEl.style.display = useCloud ? 'block' : 'none';
+}
+async function submitAuth() {
+  const nick = (($('auth-nick') && $('auth-nick').value) || '').trim().replace(/\s+/g, ' ').slice(0, 12);
+  const pass = (($('auth-pass') && $('auth-pass').value) || '');
+  const pass2 = (($('auth-pass2') && $('auth-pass2').value) || '');
+  const email = (($('auth-email') && $('auth-email').value) || '').trim();
+  const msg = $('auth-msg');
+  const setMsg = (t) => { if (msg) msg.textContent = t; };
+  if (!nick || nick.length < 1) { setMsg('닉네임을 입력하세요.'); return; }
+  if (pass.length < 4) { setMsg('비밀번호는 4자 이상이어야 합니다.'); return; }
+
+  // ===== 클라우드 (Supabase) =====
+  if (useCloud && sbClient) {
+    if (!email || !email.includes('@')) { setMsg('이메일을 입력하세요.'); return; }
+    setMsg('처리 중...');
+    try {
+      if (authMode === 'register') {
+        if (pass !== pass2) { setMsg('비밀번호 확인이 일치하지 않습니다.'); return; }
+        if (await cloudNickTaken(nick)) { setMsg('이미 사용 중인 닉네임입니다.'); return; }
+        const { data, error } = await sbClient.auth.signUp({
+          email,
+          password: pass,
+          options: { data: { nick } }
+        });
+        if (error) { setMsg(error.message || '가입 실패'); return; }
+        if (!data.user) { setMsg('가입 실패 (메일 확인이 필요할 수 있음)'); return; }
+        sbUserId = data.user.id;
+        currentUserKey = 'cloud:' + sbUserId;
+        saveData = defaultSaveData(nick);
+        if (window.__legacySave && confirm('이전 로컬 기록을 이 계정으로 가져올까요?')) {
+          saveData = Object.assign(saveData, window.__legacySave);
+          saveData.nick = nick;
+        }
+        normalizeMissions();
+        await cloudSaveProfile();
+        setMsg('');
+        showScreen('select-screen');
+        updateRecordSummary();
+        alert('가입 완료!\n이메일 확인이 켜져 있으면 메일함을 확인하세요.\n닉네임: ' + nick);
+        return;
+      }
+      // login
+      const { data, error } = await sbClient.auth.signInWithPassword({ email, password: pass });
+      if (error) { setMsg(error.message || '로그인 실패'); return; }
+      sbUserId = data.user.id;
+      currentUserKey = 'cloud:' + sbUserId;
+      let row = await cloudLoadProfile(sbUserId);
+      if (row && row.data) {
+        saveData = Object.assign(defaultSaveData(row.nick || nick), row.data);
+        saveData.nick = row.nick || nick;
+      } else {
+        saveData = defaultSaveData(nick);
+        await cloudSaveProfile();
+      }
+      normalizeMissions();
+      setMsg('');
+      showScreen('select-screen');
+      updateRecordSummary();
+      return;
+    } catch (e) {
+      setMsg((e && e.message) || '오류 발생');
+      return;
+    }
+  }
+
+  // ===== 로컬 모드 =====
+  const key = nickKey(nick);
+  loadAccountsDB();
+  if (authMode === 'register') {
+    if (pass !== pass2) { setMsg('비밀번호 확인이 일치하지 않습니다.'); return; }
+    if (accountsDB[key]) { setMsg('이미 사용 중인 닉네임입니다.'); return; }
+    const passHash = await hashPass(pass);
+    const tag = randomTag();
+    let data = defaultSaveData(nick);
+    data.tag = tag;
+    if (window.__legacySave && nickKey(window.__legacySave.nick || '') === key) {
+      data = Object.assign(data, window.__legacySave);
+      data.nick = nick;
+      data.tag = tag;
+    } else if (window.__legacySave && !window.__legacySave.nick && Object.keys(accountsDB).length === 0) {
+      if (confirm('이전 플레이 기록을 이 계정으로 가져올까요?')) {
+        data = Object.assign(data, window.__legacySave);
+        data.nick = nick;
+        data.tag = tag;
+      }
+    }
+    accountsDB[key] = { nick, tag, passHash, data };
+    persistAccountsDB();
+    currentUserKey = key;
+    saveData = data;
+    normalizeMissions();
+    try { localStorage.setItem(SESSION_KEY, key); } catch (e) {}
+    persistSave();
+    setMsg('');
+    showScreen('select-screen');
+    updateRecordSummary();
+    alert(`가입 완료!\n닉네임: ${nick}`);
+    return;
+  }
+  const acc = accountsDB[key];
+  if (!acc) { setMsg('존재하지 않는 닉네임입니다.'); return; }
+  const passHash = await hashPass(pass);
+  if (acc.passHash !== passHash) { setMsg('비밀번호가 올바르지 않습니다.'); return; }
+  currentUserKey = key;
+  saveData = Object.assign(defaultSaveData(acc.nick), acc.data || {});
+  saveData.nick = acc.nick;
+  saveData.tag = acc.tag || saveData.tag || randomTag();
+  if (!acc.tag) { acc.tag = saveData.tag; persistAccountsDB(); }
+  normalizeMissions();
+  try { localStorage.setItem(SESSION_KEY, key); } catch (e) {}
+  persistSave();
+  setMsg('');
+  showScreen('select-screen');
+  updateRecordSummary();
+}
+async function logoutAccount() {
+  if (!confirm('로그아웃 할까요?')) return;
+  if (useCloud && sbClient) {
+    try { await sbClient.auth.signOut(); } catch (e) {}
+  }
+  sbUserId = null;
+  currentUserKey = null;
+  saveData = defaultSaveData('');
+  try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
+  showAuthTab('login');
+  showScreen('auth-screen');
+}
+function exportSaveFile() {
+  if (!requireLogin()) return;
+  const payload = {
+    version: 2,
+    exportedAt: new Date().toISOString(),
+    account: {
+      nick: saveData.nick,
+      tag: saveData.tag,
+      passHash: accountsDB[currentUserKey] && accountsDB[currentUserKey].passHash
+    },
+    data: saveData
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `sword_mage_${saveData.nick || 'save'}.json`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+function importSaveFile() {
+  const inp = document.createElement('input');
+  inp.type = 'file';
+  inp.accept = 'application/json,.json';
+  inp.onchange = async () => {
+    const file = inp.files && inp.files[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const payload = JSON.parse(text);
+      const data = payload.data || payload;
+      const nick = (payload.account && payload.account.nick) || data.nick;
+      if (!nick) { alert('세이브에 닉네임이 없습니다.'); return; }
+      const key = nickKey(nick);
+      loadAccountsDB();
+      if (accountsDB[key] && !confirm('같은 닉 계정이 있습니다. 덮어쓸까요?')) return;
+      const passHash = (payload.account && payload.account.passHash) || (accountsDB[key] && accountsDB[key].passHash) || await hashPass('0000');
+      const tag = (payload.account && payload.account.tag) || data.tag || randomTag();
+      data.nick = nick;
+      data.tag = tag;
+      accountsDB[key] = { nick, tag, passHash, data };
+      persistAccountsDB();
+      if (!payload.account || !payload.account.passHash) {
+        alert('가져온 계정 임시 비밀번호: 0000\n로그인 후 상점에서 닉 변경권을 쓰거나 비밀번호를 기억하세요.\n(해시만 있던 경우 기존 비번 유지)');
+      }
+      alert('가져오기 완료. 로그인해 주세요.');
+      showAuthTab('login');
+      if ($('auth-nick')) $('auth-nick').value = nick;
+    } catch (e) {
+      alert('세이브 파일을 읽을 수 없습니다.');
+    }
+  };
+  inp.click();
+}
+
+function hasBadge(id) { return !!saveData.badges[id]; }
+function unlockBadge(id) {
+  if (hasBadge(id)) return false;
+  const def = BADGE_DEFS.find(b => b.id === id);
+  if (!def) return false;
+  saveData.badges[id] = Date.now();
+  pendingNewBadges.push(def);
+  // 미션: 벳지 획득 시 10 LR (1회)
+  try {
+    normalizeMissions();
+    if (!saveData.missions.badgePaid[id]) {
+      saveData.missions.badgePaid[id] = true;
+      saveData.lr = (saveData.lr || 0) + 10;
+      pendingNewBadges.push({ icon: '💰', name: '미션 보상', desc: '벳지 획득 +10 LR' });
+    }
+  } catch (e) {}
+  persistSave();
+  return true;
+}
+
+function openMissions() {
+  if (!requireLogin()) return;
+  normalizeMissions();
+  persistSave();
+  const list = $('mission-list');
+  const dateEl = $('mission-date');
+  if (dateEl) dateEl.textContent = '오늘: ' + missionToday();
+  if (!list) return;
+  const m = saveData.missions;
+  const rows = [
+    { title: '결투 1승 (일일)', desc: '실시간/코드 결투 승리', done: !!m.dailyDuel, reward: '50 LR' },
+    { title: '강화 대결 1승 (일일)', desc: 'AI 강화 대결 승리', done: !!m.dailyEnhance, reward: '50 LR' },
+    { title: '벳지 1개 획득', desc: '새 벳지마다 (중복 없음)', done: false, reward: '10 LR', always: true },
+    { title: '이벤트전 첫 승리', desc: '시이다 케인 토벌', done: !!m.eventCleared, reward: '500 LR' },
+    { title: '보스전 클리어', desc: '고대 마법사 또는 몰락한 신 처치', done: !!m.raidCleared, reward: '1000 LR' }
+  ];
+  list.innerHTML = rows.map(r => `
+    <div style="background:rgba(0,0,0,0.28); border-radius:12px; padding:12px; margin-bottom:10px; border:1px solid #5a4a8a;">
+      <div style="font-weight:700; color:${r.done ? '#96c93d' : '#ffd700'};">${r.done ? '✅ ' : '⬜ '}${r.title}</div>
+      <div style="font-size:0.85rem; opacity:0.85; margin-top:4px;">${r.desc}</div>
+      <div style="font-size:0.85rem; color:#ffd700; margin-top:6px;">보상: ${r.reward}${r.always ? ' / 회' : ''}</div>
+    </div>`).join('');
+  showScreen('mission-screen');
+}
+function grantMission(type) {
+  normalizeMissions();
+  let gained = 0;
+  if (type === 'duel' && !saveData.missions.dailyDuel) {
+    saveData.missions.dailyDuel = true;
+    saveData.lr = (saveData.lr || 0) + 50;
+    gained = 50;
+  } else if (type === 'enhance' && !saveData.missions.dailyEnhance) {
+    saveData.missions.dailyEnhance = true;
+    saveData.lr = (saveData.lr || 0) + 50;
+    gained = 50;
+  } else if (type === 'event' && !saveData.missions.eventCleared) {
+    saveData.missions.eventCleared = true;
+    saveData.lr = (saveData.lr || 0) + 500;
+    gained = 500;
+  } else if (type === 'raid' && !saveData.missions.raidCleared) {
+    saveData.missions.raidCleared = true;
+    saveData.lr = (saveData.lr || 0) + 1000;
+    gained = 1000;
+  }
+  if (gained) {
+    persistSave();
+    try { upsertRankBoard(saveData.nick || '나', saveData.lr); } catch (e) {}
+  }
+  return gained;
+}
+
+function updateRecordSummary() {
+  const el = $('record-summary');
+  if (!el) return;
+  if (typeof saveData.lr !== 'number') saveData.lr = 0;
+  if (typeof saveData.lp !== 'number') saveData.lp = 0;
+  if (!saveData.shop) saveData.shop = { goldNick: false, assassin: false, priest: false, archer: false };
+  if (!Array.isArray(saveData.rankBoard)) saveData.rankBoard = [];
+  normalizeMissions();
+  const got = Object.keys(saveData.badges || {}).length;
+  const nick = displayNick();
+  el.textContent = (isLoggedIn() ? `[${nick}] ` : '') + `LR ${saveData.lr} · LP ${saveData.lp} · 승 ${saveData.wins} · 패 ${saveData.losses} · 연승 ${saveData.streak} · 벳지 ${got}/${BADGE_DEFS.length}`;
+  const nd = $('nick-display');
+  if (nd) {
+    if (isLoggedIn()) {
+      nd.textContent = `${nick} · ${saveData.lr} LR · ${saveData.lp} LP`;
+      nd.style.color = '#ffd700';
+      nd.style.textShadow = (saveData.shop && saveData.shop.goldNick) ? '0 0 8px #ffd700' : 'none';
+      nd.style.fontWeight = (saveData.shop && saveData.shop.goldNick) ? '800' : '600';
+    } else {
+      nd.textContent = '로그인 필요';
+      nd.style.textShadow = 'none';
+    }
+  }
+  const lm = $('lr-display-menu');
+  if (lm) lm.textContent = `보유 LR: ${saveData.lr}`;
+}
+
+function refreshClassCards() {
+  ensureShopSave();
+  const map = [
+    ['cls-assassin', !!saveData.shop.assassin],
+    ['cls-priest', !!saveData.shop.priest],
+    ['cls-archer', !!saveData.shop.archer]
+  ];
+  map.forEach(([id, ok]) => {
+    const el = $(id);
+    if (el) el.style.display = ok ? '' : 'none';
+  });
+}
+
+function openPlayMenu() {
+  if (!requireLogin()) return;
+  updateRecordSummary();
+  refreshClassCards();
+  showScreen('play-menu-screen');
+}
+function openEtcMenu() {
+  if (!requireLogin()) return;
+  showScreen('etc-screen');
+}
+function openHelp() {
+  if (!requireLogin()) return;
+  renderHelp();
+  showScreen('help-screen');
+}
+function helpCard(icon, title, body) {
+  return `<div style="background:rgba(0,0,0,0.28);border:1px solid #5a4a8a;border-radius:12px;padding:12px;margin-bottom:10px;">
+    <div style="font-weight:800;color:#ffd700;margin-bottom:6px;">${icon} ${title}</div>
+    <div style="font-size:0.88rem;line-height:1.45;opacity:0.95;">${body}</div>
+  </div>`;
+}
+function helpSection(title) {
+  return `<div style="text-align:center;font-weight:800;color:#c9b6ff;margin:14px 0 8px;font-size:1.05rem;">${title}</div>`;
+}
+function renderHelp() {
+  const el = $('help-list');
+  if (!el) return;
+  let h = '';
+  h += helpSection('상태이상');
+  h += helpCard('💫', '마비', '다음 내 공격 턴을 1회 스킵한다.');
+  h += helpCard('😈', '타락', '다음 내 공격 턴에 공격·능력이 나에게 반사된다.');
+  h += helpCard('☠️', '저주', '능력 사용 불가 + 공격력 30% 감소. 최대 2중첩(중첩마다 추가 감소).');
+  h += helpCard('🔥', '화염', '2턴 유지. 매 턴 상대 현재 체력의 2% 추가 피해 + 체력 회복 효과 절반.');
+  h += helpCard('🌑', '부패', '상대 턴마다 상대 최대(또는 현재 규칙상) 체력의 10% 감소. 일부 무기는 확정/확률.');
+  h += helpCard('🔒', '봉인', '즉사와 비슷하게 즉시 패배 처리. (불사·부활 등은 별도 규칙)');
+  h += helpCard('🪞', '미러링', '다음 내 공격 시: 데미지는 내 무기, 능력은 상대 무기 확률로 발동.');
+  h += helpCard('🛡️', '보호막', '피해를 먼저 흡수. 보호막이 있으면 일부 상태이상도 막는다. 성자 긴급 보호막(체력 20% 이하) / 수호천사 매턴 +50.');
+  h += helpCard('✨', '정화', '35% 확률. 내 상태이상이 있으면 제거, 없으면 다음 턴 상대 능력 1회 무시.');
+
+  h += helpSection('전투 능력');
+  h += helpCard('⚡', '이중 공격', '한 턴에 공격을 두 번 한다.');
+  h += helpCard('💀', '즉사 / 참격 / 초신성', '확률로 상대를 즉시 쓰러뜨린다. 조건형(체력 % 이하)이 있는 무기도 있다. 보호막이 있으면 즉사를 1회 막을 수 있다.');
+  h += helpCard('🩸', '흡혈', '가한 피해의 일부만큼 체력을 회복한다.');
+  h += helpCard('📤', '흡수', '상대 체력 비율만큼 깎고 회복한다.');
+  h += helpCard('🌑', '몰락의 밤', '상대 현재 체력의 절반을 삭제한다.');
+  h += helpCard('🍽️', '최후의 만찬', '받은 피해의 일부(무기별 %)를 체력으로 회복한다. 단, 자신의 체력이 최대 체력의 10% 이하면 발동하지 않는다.');
+  h += helpCard('👑', '부활', '죽음에 이르면 1회 체력 일부로 살아난다. (신의 유산 50%, 수호천사 25% 등)');
+  h += helpCard('🛡️', '최후의 저항', '각성(엑스칼리버) 시 1회 체력 1로 버틴다.');
+  h += helpCard('💧', '능력 무효', '피격 시 확률로 상대 능력을 무효화한다. (신의 눈물 등)');
+  h += helpCard('🛡️', '공격 무시', '피격 시 확률로 일반 공격을 무시한다. 즉사류는 못 피한다.');
+  h += helpCard('✝️', '마법 저항', '마법 직업에게 받는 데미지를 %로 감소한다.');
+  h += helpCard('⚔️', '각성 (엑스칼리버)', '철검 등에서 확률 각성. 즉사 고확률 + 최후의 저항. 자신 턴 2회 후 파괴.');
+  h += helpCard('👼', '각성 (수호천사)', '성자 지팡이 등에서 확률 각성. 매턴 보호막 +50, 1회 25% 부활.');
+
+  h += helpSection('처리 순서 (요약)');
+  h += helpCard('1️⃣', '턴 시작', '마비면 스킵. 부패/화염 등 지속 효과 적용.');
+  h += helpCard('2️⃣', '예약 효과', '타락·미러링 등 미리 걸려 있던 효과 우선.');
+  h += helpCard('3️⃣', '능력 판정', '저주가 있으면 능력 불가(미러링 예외 가능). 정화/무효/보호막이 상태이상을 막을 수 있음.');
+  h += helpCard('4️⃣', '데미지', '보호막 흡수 → 체력 감소 → 부활/불사/무기 교체 체크.');
+
+  h += helpSection('직업 기본');
+  h += helpCard('🗡️', '검사', '시작 체력 250. 물리·각성·흡혈·참격 계열.');
+  h += helpCard('🪄', '마법사', '시작 체력 150. 봉인·저주·미러링·부패·즉사·회피.');
+  h += helpCard('🗡️', '암살자', '상점 해금. 유리몸·암살 특화 (해금 후 사용).');
+  h += helpCard('✝️', '성직자', '상점 해금. 회복·보호 계열.');
+  h += helpCard('🏹', '궁수', '상점 해금. 이중·원거리 견제.');
+
+  h += `<p style="text-align:center;opacity:0.55;font-size:0.8rem;margin:12px 0 4px;">세부 확률은 강화 화면 무기 설명 / 전투 로그를 참고하세요.</p>`;
+  el.innerHTML = h;
+}
+
+function ensureShopSave() {
+  if (typeof saveData.lr !== 'number') saveData.lr = 0;
+  if (typeof saveData.lp !== 'number') saveData.lp = 0;
+  if (!saveData.shop) saveData.shop = { goldNick: false, assassin: false, priest: false, archer: false };
+}
+
+function openShop() {
+  if (!requireLogin()) return;
+  ensureShopSave();
+  renderShop();
+  showScreen('shop-screen');
+}
+
+function renderShop() {
+  ensureShopSave();
+  const lrEl = $('shop-lr');
+  if (lrEl) lrEl.textContent = `보유 LR: ${saveData.lr || 0} · LP: ${saveData.lp || 0}`;
+  const list = $('shop-list');
+  if (!list) return;
+  list.innerHTML = '';
+  SHOP_ITEMS.forEach(it => {
+    let owned = false;
+    if (it.id === 'gold_nick') owned = !!saveData.shop.goldNick;
+    if (it.id === 'unlock_as') owned = !!saveData.shop.assassin;
+    if (it.id === 'unlock_priest') owned = !!saveData.shop.priest;
+    if (it.id === 'unlock_archer') owned = !!saveData.shop.archer;
+    const cur = it.currency === 'lp' ? 'LP' : 'LR';
+    const div = document.createElement('div');
+    div.style.cssText = 'background:rgba(0,0,0,0.28); border-radius:12px; padding:12px 14px; margin-bottom:10px; border:1px solid #5a4a8a;';
+    div.innerHTML = `
+      <div style="font-weight:700; color:#ffd700;">${it.name} · ${it.price} ${cur}</div>
+      <div style="font-size:0.85rem; opacity:0.85; margin:4px 0 8px;">${it.desc}</div>
+      <button class="btn ${owned ? '' : 'btn-gold'}" style="margin:0; padding:8px; font-size:0.9rem;"
+        ${owned ? 'disabled' : ''} onclick="buyShopItem('${it.id}')">${owned ? '보유 중' : (it.type === 'exchange' ? '교환' : '구매')}</button>`;
+    list.appendChild(div);
+  });
+}
+
+function buyShopItem(id) {
+  const it = SHOP_ITEMS.find(x => x.id === id);
+  if (!it) return;
+  ensureShopSave();
+
+  if (it.id === 'gold_nick' && saveData.shop.goldNick) { alert('이미 보유 중'); return; }
+  if (it.id === 'unlock_as' && saveData.shop.assassin) { alert('이미 해금됨'); return; }
+  if (it.id === 'unlock_priest' && saveData.shop.priest) { alert('이미 해금됨'); return; }
+  if (it.id === 'unlock_archer' && saveData.shop.archer) { alert('이미 해금됨'); return; }
+
+  if (it.currency === 'lr') {
+    if ((saveData.lr || 0) < it.price) { alert('LR이 부족합니다!'); return; }
+  } else {
+    if ((saveData.lp || 0) < it.price) { alert('LP가 부족합니다!'); return; }
+  }
+
+  if (it.type === 'exchange') {
+    saveData.lr -= 100;
+    saveData.lp = (saveData.lp || 0) + 10;
+    persistSave();
+    try { upsertRankBoard(saveData.nick || '나', saveData.lr); } catch (e) {}
+    alert(`교환 완료! +10 LP (보유 LP ${saveData.lp})`);
+    renderShop();
+    return;
+  }
+
+  if (it.currency === 'lr') saveData.lr -= it.price;
+  else saveData.lp -= it.price;
+
+  if (it.id === 'gold_nick') saveData.shop.goldNick = true;
+  if (it.id === 'unlock_as') saveData.shop.assassin = true;
+  if (it.id === 'unlock_priest') saveData.shop.priest = true;
+  if (it.id === 'unlock_archer') saveData.shop.archer = true;
+  if (it.id === 'nick_change') {
+    const n = prompt('새 닉네임 (최대 12자):', saveData.nick || '');
+    if (n == null) {
+      saveData.lp += it.price;
+      alert('취소됨');
+      renderShop();
+      return;
+    }
+    let nn = n.trim().replace(/\s+/g, ' ').slice(0, 12);
+    if (!nn) {
+      saveData.lp += it.price;
+      alert('닉네임이 비어 있습니다.');
+      renderShop();
+      return;
+    }
+    const newKey = nickKey(nn);
+    loadAccountsDB();
+    if (newKey !== currentUserKey && accountsDB[newKey]) {
+      saveData.lp += it.price;
+      alert('이미 사용 중인 닉네임입니다.');
+      renderShop();
+      return;
+    }
+    // 계정 키 이동
+    if (currentUserKey && accountsDB[currentUserKey] && newKey !== currentUserKey) {
+      const old = accountsDB[currentUserKey];
+      delete accountsDB[currentUserKey];
+      old.nick = nn;
+      accountsDB[newKey] = old;
+      currentUserKey = newKey;
+      try { localStorage.setItem(SESSION_KEY, newKey); } catch (e) {}
+      persistAccountsDB();
+    }
+    saveData.nick = nn;
+  }
+
+  persistSave();
+  try { upsertRankBoard(saveData.nick || '나', saveData.lr); } catch (e) {}
+  alert(`${it.name} 완료!`);
+  renderShop();
+  try { refreshClassCards(); } catch (e) {}
+}
+
+function surrenderBattle() {
+  if (battleEnded) return;
+  if (!confirm('항복하시겠습니까?')) return;
+  autoMode = false;
+  playerAttackLock = false;
+  try {
+    if (rtActive) rtAfterMyTurn(true, false, '항복');
+  } catch (e) {}
+  endBattle(false, '항복');
+}
+
+function openCodex() {
+  if (!requireLogin()) return;
+  renderCodex();
+  showScreen('codex-screen');
+}
+function renderCodex() {
+  const list = $('codex-list');
+  const prog = $('codex-progress');
+  if (!list) return;
+  const got = Object.keys(saveData.badges).length;
+  if (prog) prog.textContent = `${got} / ${BADGE_DEFS.length} 획득`;
+  const cats = [
+    { key: 'weapon', title: '무기 마스터' },
+    { key: 'special', title: '특수' },
+    { key: 'hidden', title: '히든' },
+  ];
+  let html = '';
+  cats.forEach(cat => {
+    html += `<div style="margin:14px 0 6px; font-weight:800; color:#ffd700;">${cat.title}</div>`;
+    BADGE_DEFS.filter(b => b.cat === cat.key).forEach(b => {
+      const unlocked = hasBadge(b.id);
+      const showName = unlocked ? b.name : '???';
+      const showDesc = unlocked ? b.desc : (b.cat === 'hidden' ? '숨겨진 조건' : b.desc);
+      let clickable = '';
+      let onclick = '';
+      if (b.id === 'sw7' || b.id === 'st7') {
+        clickable = 'badge-clickable';
+        onclick = `onclick="onBadge7Click('${b.id}')"`;
+      } else if (b.id === 'sw5' || b.id === 'st5') {
+        clickable = 'badge-clickable';
+        onclick = `onclick="onBadge5Click('${b.id}')"`;
+      }
+      html += `<div class="badge-item ${unlocked ? '' : 'locked'} ${clickable}" ${onclick}>
+        <div class="badge-icon">${unlocked ? b.icon : '❓'}</div>
+        <div class="badge-info">
+          <div class="badge-name">${showName}</div>
+          <div class="badge-desc">${showDesc}</div>
+        </div>
+      </div>`;
+    });
+  });
+  list.innerHTML = html;
+}
+function onBadge7Click(id) {
+  click7Count++;
+  if (click7Timer) clearTimeout(click7Timer);
+  click7Timer = setTimeout(() => { click7Count = 0; }, 2500);
+  if (click7Count >= 7) {
+    click7Count = 0;
+    if (unlockBadge('hd_love')) {
+      pendingNewBadges = pendingNewBadges.slice(-1);
+      showBadgePopup();
+      renderCodex();
+    }
+  }
+}
+function onBadge5Click(id) {
+  click5Count++;
+  if (click5Timer) clearTimeout(click5Timer);
+  click5Timer = setTimeout(() => { click5Count = 0; }, 2500);
+  if (click5Count >= 5) {
+    click5Count = 0;
+    if (unlockBadge('hd_ban')) {
+      pendingNewBadges = pendingNewBadges.slice(-1);
+      showBadgePopup();
+      renderCodex();
+    }
+  }
+}
+function onCreatorClick() {
+  creatorClickCount++;
+  if (creatorClickTimer) clearTimeout(creatorClickTimer);
+  creatorClickTimer = setTimeout(() => { creatorClickCount = 0; }, 2500);
+  if (creatorClickCount >= 3) {
+    creatorClickCount = 0;
+    if (unlockBadge('hd_dot')) {
+      pendingNewBadges = pendingNewBadges.slice(-1);
+      showBadgePopup();
+    }
+  }
+}
+function showBadgePopup() {
+  const pop = $('badge-popup');
+  const list = $('badge-popup-list');
+  if (!pop || !list || !pendingNewBadges.length) return;
+  list.innerHTML = pendingNewBadges.map(b =>
+    `<div style="margin:8px 0;"><span style="font-size:1.5rem">${b.icon}</span> <b style="color:#ffd700">${b.name}</b><br><span style="opacity:0.85;font-size:0.9rem">${b.desc}</span></div>`
+  ).join('');
+  pop.style.display = 'flex';
+}
+function closeBadgePopup() {
+  const pop = $('badge-popup');
+  if (pop) pop.style.display = 'none';
+  pendingNewBadges = [];
+}
+
+function evaluateBadges(win, reason) {
+  pendingNewBadges = [];
+  // 결투방: 승패·벳지 없음, 승리 시 LR만
+  if (challengeMode) {
+    if (win) {
+      saveData.lr = (saveData.lr || 0) + 100;
+      const mg = grantMission('duel');
+      upsertRankBoard(saveData.nick || '나', saveData.lr);
+      if (challengeEnemyData && challengeEnemyData.nick) {
+        if (typeof challengeEnemyData.lr === 'number') {
+          upsertRankBoard(challengeEnemyData.nick, challengeEnemyData.lr);
+        }
+      }
+      persistSave();
+      if (mg) pendingNewBadges.push({ icon: '📋', name: '일일 미션', desc: `결투 승리 +${mg} LR` });
+    }
+    return;
+  }
+  if (!win) {
+    saveData.losses++;
+    if (gameMode !== 'boss') saveData.streak = 0;
+    persistSave();
+    return;
+  }
+  saveData.wins++;
+  // 이벤트: 연승·무기 벳지 제외, 이벤트 벳지만
+  if (gameMode === 'boss') {
+    unlockBadge('boss_win');
+    if (playerClass === 'sword') unlockBadge('boss_raast');
+    if (playerClass === 'mage') unlockBadge('boss_shadow');
+    if (reason && /봉인/.test(reason) && /다르킨/.test(reason)) {
+      unlockBadge('boss_seal_darkin');
+    }
+    const mg = grantMission('event');
+    if (mg) pendingNewBadges.push({ icon: '📋', name: '미션', desc: `이벤트 첫 승리 +${mg} LR` });
+    persistSave();
+    return;
+  }
+  // 보스전 (고대 마법사 / 몰락한 신)
+  if (gameMode === 'raid') {
+    const mg = grantMission('raid');
+    if (mg) pendingNewBadges.push({ icon: '📋', name: '미션', desc: `보스전 클리어 +${mg} LR` });
+    persistSave();
+    return;
+  }
+  // 일반 강화 대결
+  {
+    const mg = grantMission('enhance');
+    if (mg) pendingNewBadges.push({ icon: '📋', name: '일일 미션', desc: `강화 대결 승리 +${mg} LR` });
+  }
+  saveData.streak++;
+  // 무기 벳지
+  if (level >= 1 && level <= 10) {
+    const prefix = playerClass === 'sword' ? 'sw' : 'st';
+    unlockBadge(prefix + level);
+  }
+  // 특수
+  if (battleFlags.minHpRatio <= 0.10) unlockBadge('sp_comeback');
+  if (battleFlags.awakened) unlockBadge('sp_awaken');
+  const oneshot = reason && /즉사|봉인|참격|초신성|엑스칼리버/.test(reason);
+  if (oneshot) unlockBadge('sp_oneshot');
+  if (!battleFlags.tookDamage) unlockBadge('sp_perfect');
+  if (level >= 9) unlockBadge('sp_high');
+  if (level <= 3 && level >= 1) unlockBadge('sp_low');
+  if (battleFlags.shieldUsed) unlockBadge('sp_shield');
+  if (saveData.streak >= 5) unlockBadge('sp_streak5');
+  if (saveData.streak >= 10) unlockBadge('sp_streak10');
+  // 완벽 히든
+  if (level >= 10) {
+    if (playerClass === 'sword') saveData.winSword10 = true;
+    if (playerClass === 'mage') saveData.winMage10 = true;
+    if (saveData.winSword10 && saveData.winMage10) unlockBadge('hd_both10');
+  }
+  persistSave();
+}
+
+
+// ========== 유틸 ==========
+function $(id) { return document.getElementById(id); }
+function showScreen(id) {
+  try {
+    document.querySelectorAll('.screen').forEach(s => {
+      s.classList.remove('active');
+      s.style.display = '';
+    });
+    const el = $(id);
+    if (el) {
+      el.classList.add('active');
+      el.style.display = 'flex';
+    }
+  } catch (e) { console.warn('showScreen', e); }
+}
+function rand() { return Math.random(); }
+function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+function getWeaponList(cls) {
+  if (cls === 'sword') return SWORD;
+  if (cls === 'mage') return STAFF;
+  if (cls === 'assassin') return ASSASSIN;
+  if (cls === 'priest') return PRIEST;
+  if (cls === 'archer') return ARCHER;
+  return SWORD;
+}
+function getWeapon(cls, lv, awakened, awakenType) {
+  if (awakened) {
+    if (awakenType === 'guardian') return Object.assign({}, GUARDIAN);
+    return Object.assign({}, EXCALIBUR);
+  }
+  const list = getWeaponList(cls);
+  const defaults = { sword: '기본 검', mage: '기본 지팡이', assassin: '기본 단검', priest: '기본 성물', archer: '기본 활' };
+  if (lv <= 0) return { name: defaults[cls] || '기본 무기', atk: 0, desc: '' };
+  return list[Math.min(lv - 1, 9)];
+}
+
+function hasSaintShieldWeapon(isPlayer) {
+  // 성자(+5) 또는 보호막 무기 · 수호천사 각성 중에도 긴급 보호막 가능
+  try {
+    if (isPlayer) {
+      if (playerAwakened && playerAwakenType === 'guardian') return true;
+      if (playerClass !== 'mage' && playerClass !== 'priest') return false;
+      const base = getWeapon(playerClass, level, false, null);
+      return !!(base && base.shield);
+    } else {
+      if (!enemy) return false;
+      if (enemyAwakened && enemyAwakenType === 'guardian') return true;
+      if (enemy.class !== 'mage' && enemy.class !== 'priest') return false;
+      const base = getWeapon(enemy.class, enemy.level, false, null);
+      return !!(base && base.shield);
+    }
+  } catch (e) { return false; }
+}
+
+function tryActivateShield(isPlayer) {
+  if (isPlayer) {
+    if (!hasSaintShieldWeapon(true)) return false;
+    if (playerShieldUsed || hp <= 0) return false;
+    if (hp >= maxHp * 0.20) return false; // 이미 20% 이상이면 대기
+    playerShieldUsed = true;
+    playerShield = Math.max(playerShield, 250);
+    battleFlags.shieldUsed = true;
+    playerParalyzed = false; playerFall = false; playerCursed = 0;
+    playerSealed = false;
+    if (enemy && enemy.fireTurns) enemy.fireTurns = 0;
+    return true;
+  } else {
+    if (!enemy || !hasSaintShieldWeapon(false)) return false;
+    if (enemyShieldUsed || enemy.hp <= 0) return false;
+    if (enemy.hp >= enemy.maxHp * 0.20) return false;
+    enemyShieldUsed = true;
+    enemyShield = Math.max(enemyShield || 0, 250);
+    enemyParalyzed = false; enemyFall = false; enemyCursed = 0;
+    enemySealed = false;
+    if (enemy.fireTurns) enemy.fireTurns = 0;
+    return true;
+  }
+}
+
+// 피격 직전: 20% 아래로 떨어지거나 즉사할 타격이면 보호막 선발동
+function tryEmergencyShield(isPlayer, incoming) {
+  if (isPlayer) {
+    if (!hasSaintShieldWeapon(true) || playerShieldUsed || hp <= 0) return false;
+    if (playerShield > 0) return false;
+    const after = hp - Math.max(0, incoming);
+    if (hp < maxHp * 0.20 || after < maxHp * 0.20) {
+      playerShieldUsed = true;
+      playerShield = Math.max(playerShield, 250);
+      battleFlags.shieldUsed = true;
+      playerParalyzed = false; playerFall = false; playerCursed = 0;
+      playerSealed = false;
+      if (enemy && enemy.fireTurns) enemy.fireTurns = 0;
+      return true;
+    }
+  } else {
+    if (!enemy || !hasSaintShieldWeapon(false) || enemyShieldUsed || enemy.hp <= 0) return false;
+    if (enemyShield > 0) return false;
+    const after = enemy.hp - Math.max(0, incoming);
+    if (enemy.hp < enemy.maxHp * 0.20 || after < enemy.maxHp * 0.20) {
+      enemyShieldUsed = true;
+      enemyShield = Math.max(enemyShield || 0, 250);
+      enemyParalyzed = false; enemyFall = false; enemyCursed = 0;
+      enemySealed = false;
+      if (enemy.fireTurns) enemy.fireTurns = 0;
+      return true;
+    }
+  }
+  return false;
+}
+
+function dmgPlayer(amount) {
+  // 성검 마법 저항 (마법 직업 공격) - % 감소
+  try {
+    const pw = getWeapon(playerClass, level, playerAwakened, playerAwakenType);
+    if (pw && enemy && isMagicClass(enemy.class)) {
+      if (pw.magicResistPct) amount = Math.floor(amount * (1 - pw.magicResistPct));
+      else if (pw.magicResist) amount = Math.max(0, amount - pw.magicResist);
+    }
+  } catch (e) {}
+  amount = Math.max(0, amount);
+  // 보호막 선발동 (한 방에 20% 이하/사망 구간 진입 시)
+  if (amount > 0) tryEmergencyShield(true, amount);
+  if (playerShield > 0) {
+    if (amount <= playerShield) {
+      playerShield -= amount;
+      return 0;
+    }
+    amount -= playerShield;
+    playerShield = 0;
+  }
+  if (amount > 0) {
+    battleFlags.tookDamage = true;
+    hp = Math.max(0, hp - amount);
+    if (maxHp > 0) battleFlags.minHpRatio = Math.min(battleFlags.minHpRatio, Math.max(0, hp) / maxHp);
+  }
+  return amount;
+}
+
+function healAmount(base, isPlayerTarget) {
+  const burned = isPlayerTarget
+    ? (enemy && enemy.fireTurns && enemy.fireTurns > 0)
+    : (fireTurns > 0);
+  if (burned) return Math.floor(base * 0.5);
+  return base;
+}
+
+function hasNullify(isPlayer) {
+  try {
+    if (isPlayer) {
+      const w = getWeapon(playerClass, level, playerAwakened, playerAwakenType);
+      if (!w) return false;
+      if (typeof w.nullify === 'number') return rand() < w.nullify;
+      return !!w.nullify;
+    } else {
+      const w = enemyAwakened
+        ? (enemyAwakenType === 'guardian' ? GUARDIAN : EXCALIBUR)
+        : (enemy && enemy.weapon);
+      if (!w) return false;
+      if (typeof w.nullify === 'number') return rand() < w.nullify;
+      return !!w.nullify;
+    }
+  } catch (e) { return false; }
+}
+
+
+
+
+function dmgEnemy(amount) {
+  // 보스 그림자: 3공격 이후 확정 회피
+  if (gameMode === 'boss' && enemy && enemy.isBoss && bossIgnoreAttacks && amount > 0) {
+    return 0;
+  }
+  try {
+    const ew = enemyAwakened
+      ? (enemyAwakenType === 'guardian' ? GUARDIAN : EXCALIBUR)
+      : (enemy && enemy.weapon);
+    if (ew && isMagicClass(playerClass)) {
+      if (ew.magicResistPct) amount = Math.floor(amount * (1 - ew.magicResistPct));
+      else if (ew.magicResist) amount = Math.max(0, amount - ew.magicResist);
+    }
+  } catch (e) {}
+  amount = Math.max(0, amount);
+  if (amount > 0) tryEmergencyShield(false, amount);
+  if (enemyShield > 0) {
+    if (amount <= enemyShield) {
+      enemyShield -= amount;
+      return 0;
+    }
+    amount -= enemyShield;
+    enemyShield = 0;
+  }
+  if (amount > 0) enemy.hp = Math.max(0, enemy.hp - amount);
+  return amount;
+}
+
+function updateStatusIcons() {
+  const pIcons = [];
+  if (playerParalyzed) pIcons.push('💫마비');
+  if (playerFall) pIcons.push('😈타락');
+  if (enemy.fireTurns && enemy.fireTurns > 0) pIcons.push('🔥화염' + enemy.fireTurns);
+  if (playerCursed > 0) pIcons.push('☠️저주' + (playerCursed > 1 ? 'x'+playerCursed : ''));
+  if (playerMirror) pIcons.push('🪞미러');
+  if (playerAwakened && playerAwakenType === 'excalibur') pIcons.push('⚔️각성' + playerExcalTurns);
+  if (playerAwakened && playerAwakenType === 'guardian') pIcons.push('👼수호천사');
+  if (playerPurifyNext) pIcons.push('✨정화');
+  if (playerSealed) pIcons.push('🔒봉인');
+  if (playerShield > 0) pIcons.push('🛡️보호막' + playerShield);
+  if ($('p-status')) $('p-status').textContent = pIcons.join(' ');
+
+  const eIcons = [];
+  if (enemyParalyzed) eIcons.push('💫마비');
+  if (enemyFall) eIcons.push('😈타락');
+  if (fireTurns > 0) eIcons.push('🔥화염' + fireTurns);
+  if (enemyCursed > 0) eIcons.push('☠️저주' + (enemyCursed > 1 ? 'x'+enemyCursed : ''));
+  if (enemyMirror) eIcons.push('🪞미러');
+  if (enemyAwakened && enemyAwakenType === 'excalibur') eIcons.push('⚔️각성' + enemyExcalTurns);
+  if (enemyAwakened && enemyAwakenType === 'guardian') eIcons.push('👼수호천사');
+  if (enemyPurifyNext) eIcons.push('✨정화');
+  if (enemySealed) eIcons.push('🔒봉인');
+  if (enemyShield > 0) eIcons.push('🛡️보호막' + enemyShield);
+  if ($('e-status')) $('e-status').textContent = eIcons.join(' ');
+}
+
+function getSuccessRate(lv) {
+  // 0→1:100 ... 6→7:45, 7→8:30, 8→9:25, 9→10:12
+  const rates = [100, 98, 80, 75, 65, 50, 45, 30, 25, 15];
+  return rates[Math.min(lv, 9)];
+}
+
+
+// ========== 이벤트 ==========
+function openRaidBossMode() {
+  if (!requireLogin()) return;
+  if (!playerClass) {
+    alert('먼저 직업을 선택하세요!');
+    return;
+  }
+  selectedRaidBossId = null;
+  pendingRaidBoss = false;
+  document.querySelectorAll('#raid-boss-mage, #raid-boss-god').forEach(c => c.classList.remove('selected'));
+  const lab = $('raid-pick-label');
+  if (lab) lab.textContent = '';
+  const btn = $('raid-start-btn');
+  if (btn) btn.disabled = true;
+  showScreen('raid-pick-screen');
+}
+function selectRaidBoss(id) {
+  if (!RAID_BOSSES[id]) return;
+  selectedRaidBossId = id;
+  document.querySelectorAll('#raid-boss-mage, #raid-boss-god').forEach(c => c.classList.remove('selected'));
+  if (id === 'ancient_mage') {
+    const el = $('raid-boss-mage'); if (el) el.classList.add('selected');
+  } else if (id === 'fallen_god') {
+    const el = $('raid-boss-god'); if (el) el.classList.add('selected');
+  }
+  const b = RAID_BOSSES[id];
+  const lab = $('raid-pick-label');
+  if (lab) lab.textContent = `선택: ${b.name}`;
+  const btn = $('raid-start-btn');
+  if (btn) btn.disabled = false;
+}
+function confirmRaidBoss() {
+  if (!selectedRaidBossId || !RAID_BOSSES[selectedRaidBossId]) {
+    alert('보스를 선택하세요!');
+    return;
+  }
+  if (!playerClass) {
+    alert('먼저 직업을 선택하세요!');
+    showScreen('play-menu-screen');
+    return;
+  }
+  pendingRaidBoss = true;
+  gameMode = 'normal';
+  startEnhance();
+  alert(`${RAID_BOSSES[selectedRaidBossId].name} 도전!\n강화 후 「전투 시작」을 누르세요.`);
+}
+function openStory() {
+  if (!requireLogin()) return;
+  renderStory();
+  showScreen('story-screen');
+}
+function renderStory() {
+  const el = $('story-list');
+  if (!el) return;
+  const card = (icon, title, body) =>
+    `<div style="background:rgba(0,0,0,0.28);border:1px solid #5a4a8a;border-radius:12px;padding:12px;margin-bottom:10px;">
+      <div style="font-weight:800;color:#ffd700;margin-bottom:6px;">${icon} ${title}</div>
+      <div style="font-size:0.9rem;line-height:1.5;opacity:0.95;white-space:pre-line;">${body}</div>
+    </div>`;
+  el.innerHTML =
+    card('⚔️', '서막', '검과 지팡이, 두 힘의 대결이 이어져 온 세계.\n강화의 기운이 무기를 깨우고, 승자는 이름을 남긴다.') +
+    card('🗡️', '검사와 마법사', '검사는 육체와 검으로, 마법사는 지팡이와 주문으로 맞선다.\n강화에 성공할수록 무기는 전설에 가까워진다.') +
+    card('👹', '보스', '고대 마법사, 몰락한 신…\n오래전 세계을 뒤흔든 존재들이 다시 모습을 드러낸다.\n(상세 스토리 추후 추가)') +
+    card('🎭', '이벤트 · 시이다 케인', '그림자와 다르킨의 힘이 얽힌 시이다 케인.\n두 자루의 무기로 맞서야 하는 시련이 기다린다.') +
+    card('✨', '계속…', '스토리는 업데이트로 계속 채워질 예정입니다.');
+}
+
+function openBossMode() {
+  if (!requireLogin()) return;
+  pendingRaidBoss = false;
+  gameMode = 'boss';
+  bossPickClass = null;
+  bossPicks = [];
+  bossWeaponIndex = 0;
+  document.querySelectorAll('#boss-cls-sword, #boss-cls-mage').forEach(c => c.classList.remove('selected'));
+  $('boss-slot1').textContent = '1번 무기: (미선택)';
+  $('boss-slot2').textContent = '2번 무기: (미선택)';
+  $('boss-weapon-grid').innerHTML = '<p style="grid-column:1/-1;opacity:0.7;text-align:center;">먼저 직업을 선택하세요</p>';
+  $('boss-start-btn').disabled = true;
+  showScreen('boss-pick-screen');
+}
+
+function bossSelectClass(cls) {
+  bossPickClass = cls;
+  bossPicks = [];
+  document.querySelectorAll('#boss-cls-sword, #boss-cls-mage').forEach(c => c.classList.remove('selected'));
+  $('boss-cls-' + cls).classList.add('selected');
+  $('boss-slot1').textContent = '1번 무기: (미선택)';
+  $('boss-slot2').textContent = '2번 무기: (미선택)';
+  $('boss-start-btn').disabled = true;
+  renderBossWeaponGrid();
+}
+
+function renderBossWeaponGrid() {
+  const grid = $('boss-weapon-grid');
+  if (!bossPickClass) return;
+  const list = bossPickClass === 'sword' ? SWORD : STAFF;
+  grid.innerHTML = '';
+  list.forEach((w, i) => {
+    const lv = i + 1;
+    const div = document.createElement('div');
+    div.className = 'weapon-pick' + (bossPicks.includes(lv) ? ' selected' : '');
+    div.innerHTML = `<div class="wp-name">+${lv} ${w.name}</div>
+      <div>ATK ${w.atk}</div>
+      <div class="wp-desc">${w.desc || '능력 없음'}</div>`;
+    div.onclick = () => toggleBossPick(lv);
+    grid.appendChild(div);
+  });
+}
+
+function toggleBossPick(lv) {
+  const idx = bossPicks.indexOf(lv);
+  if (idx >= 0) {
+    bossPicks.splice(idx, 1);
+  } else {
+    if (bossPicks.length >= 2) {
+      bossPicks.shift();
+    }
+    bossPicks.push(lv);
+  }
+  const list = bossPickClass === 'sword' ? SWORD : STAFF;
+  $('boss-slot1').textContent = bossPicks[0]
+    ? `1번 무기: +${bossPicks[0]} ${list[bossPicks[0]-1].name}`
+    : '1번 무기: (미선택)';
+  $('boss-slot2').textContent = bossPicks[1]
+    ? `2번 무기: +${bossPicks[1]} ${list[bossPicks[1]-1].name}`
+    : '2번 무기: (미선택)';
+  $('boss-start-btn').disabled = bossPicks.length < 2;
+  renderBossWeaponGrid();
+}
+
+function resetBattleFlagsBoss() {
+  playerRevived = false;
+  fireTurns = 0;
+  enemyTurnCount = 0;
+  battleTurn = 0;
+  battleEnded = false;
+  autoMode = false;
+  playerFall = false;
+  enemyFall = false;
+  playerParalyzed = false;
+  enemyParalyzed = false;
+  playerPurifyNext = false;
+  enemyPurifyNext = false;
+  lastDamageTaken = 0;
+  defeatReason = '';
+  playerAwakened = false;
+  enemyAwakened = false;
+  playerAwakenType = null;
+  enemyAwakenType = null;
+  playerExcalTurns = 0;
+  enemyExcalTurns = 0;
+  playerLastStandUsed = false;
+  enemyLastStandUsed = false;
+  playerCursed = 0;
+  enemyCursed = 0;
+  playerMirror = false;
+  enemyMirror = false;
+  playerSealed = false;
+  enemySealed = false;
+  playerShield = 0;
+  enemyShield = 0;
+  playerShieldUsed = false;
+  enemyShieldUsed = false;
+  battleFlags = { tookDamage: false, minHpRatio: 1, awakened: false, shieldUsed: false };
+}
+
+function startBossBattle() {
+  if (!bossPickClass || bossPicks.length < 2) return;
+  gameMode = 'boss';
+  playerClass = bossPickClass;
+  bossWeaponIndex = 0;
+  playerWeaponSwitched = false;
+  level = bossPicks[0];
+  maxHp = (bossPickClass === 'sword') ? 750 : 500;
+  hp = maxHp;
+  bossForm = 1;
+  bossAttackCount = 0;
+  bossIgnoreAttacks = false;
+  resetBattleFlagsBoss();
+
+  enemy = {
+    isBoss: true,
+    form: 1,
+    name: '시이다 케인',
+    class: 'boss',
+    level: 0,
+    atk: 60,
+    hp: 500,
+    maxHp: 500,
+    weapon: { name: '시이다 케인', atk: 60, desc: '1페이즈 · 공격력 60' },
+    revived: false,
+    fireTurns: 0,
+    undying: false,
+    double: 0,
+    paralyze: 0,
+    lifestealOnHit: 0,
+    skillEvery: 0
+  };
+
+  updateBossBattleUI();
+  $('battle-log').innerHTML = '';
+  addLog('system', `이벤트 시작! 시이다 케인 · 내 체력 ${maxHp}`);
+  addLog('system', `1번 무기 +${bossPicks[0]} / 예비 +${bossPicks[1]}`);
+  $('atk-btn').style.display = 'block';
+  $('atk-btn').disabled = false;
+  $('auto-btn').style.display = 'block';
+  $('auto-btn').textContent = '자동 전투';
+  try { const sb = $('surrender-btn'); if (sb) sb.style.display = 'block'; } catch (e) {}
+  showScreen('battle-screen');
+}
+
+function updateBossBattleUI() {
+  const list = playerClass === 'sword' ? SWORD : STAFF;
+  const w = getWeapon(playerClass, level, playerAwakened, playerAwakenType);
+  $('p-name').textContent = `나 (${classLabel(playerClass)}) [이벤트]`;
+  $('p-weapon').textContent = `${w.name} +${level}` + (bossWeaponIndex === 0 ? ' ①' : ' ②');
+  if ($('p-desc')) $('p-desc').textContent = w.desc || '';
+  $('p-hp-text').textContent = Math.max(0, Math.ceil(hp));
+  $('p-hp-fill').style.width = `${Math.max(0, Math.min(100, (hp / maxHp) * 100))}%`;
+  $('p-hp-fill').style.background = 'linear-gradient(90deg, #00b09b, #96c93d)';
+
+  $('e-name').textContent = enemy.name || '보스';
+  $('e-weapon').textContent = enemy.weapon ? enemy.weapon.name : '';
+  if ($('e-desc')) $('e-desc').textContent = (enemy.weapon && enemy.weapon.desc) || '';
+  $('e-hp-text').textContent = Math.max(0, Math.ceil(enemy.hp));
+  $('e-hp-fill').style.width = `${Math.max(0, Math.min(100, (enemy.hp / enemy.maxHp) * 100))}%`;
+  updateStatusIcons();
+}
+
+async function tryPlayerBossWeaponSwitch() {
+  if (gameMode !== 'boss' || playerWeaponSwitched || bossWeaponIndex !== 0) return false;
+  if (hp > 0) return false;
+  playerWeaponSwitched = true;
+  bossWeaponIndex = 1;
+  level = bossPicks[1];
+  maxHp = (playerClass === 'sword') ? 750 : 500;
+  hp = maxHp; // 항상 풀피 (50% 부활 상태 금지)
+  // 상태 완전 리셋
+  playerParalyzed = false;
+  playerFall = false;
+  playerCursed = 0;
+  playerSealed = false;
+  playerMirror = false;
+  playerPurifyNext = false;
+  playerAwakened = false;
+  playerAwakenType = null;
+  playerExcalTurns = 0;
+  playerLastStandUsed = false;
+  playerRevived = false; // 2번 무기는 유산 부활 횟수 새로
+  playerShield = 0;
+  playerShieldUsed = false;
+  lastDamageTaken = 0;
+  if (enemy) enemy.fireTurns = 0;
+  fireTurns = 0;
+  const w = getWeapon(playerClass, level, false, null);
+  await showAbility('🔄 무기 교체!', `2번 무기 [${w.name} +${level}] · 체력 ${maxHp} (풀)`);
+  addLog('system', `무기 교체! +${level} ${w.name} · HP ${maxHp}`);
+  try {
+    $('p-weapon').textContent = `${w.name} +${level}`;
+    if ($('p-desc')) $('p-desc').textContent = w.desc || '';
+    $('p-hp-text').textContent = Math.ceil(hp);
+    $('p-hp-fill').style.width = '100%';
+  } catch (e) {}
+  updateBossBattleUI();
+  updateHPBars();
+  updateStatusIcons();
+  return true;
+}
+
+
+function bossIsUndying() {
+  return !!(gameMode === 'boss' && enemy && (enemy.undying === true || enemy.name === '다르킨의 낫'));
+}
+
+/** 즉사류를 불사로 흡수. true면 즉사 무효 처리됨 */
+async function applyBossUndying(sourceLabel) {
+  if (!bossIsUndying()) return false;
+  const maxH = enemy.maxHp || 1000;
+  const chip = Math.max(1, Math.floor(maxH * 0.40));
+  const before = Math.max(1, Number(enemy.hp) || maxH);
+  enemy.hp = Math.max(1, before - chip);
+  enemy.undying = true;
+  await showAbility('♾️ 불사!', (sourceLabel || '즉사') + ' 무효! ' + chip + ' 피해 (' + before + '→' + enemy.hp + ')');
+  addLog('ability', '불사: ' + (sourceLabel || '즉사') + ' 무효, ' + chip + ' 피해 (' + before + '→' + enemy.hp + ')');
+  updateHPBars();
+  updateStatusIcons();
+  return true;
+}
+
+async function tryBossTransform() {
+  if (gameMode !== 'boss' || !enemy || !enemy.isBoss || bossForm !== 1) return false;
+  if (enemy.hp > 0) return false;
+
+  bossForm = 2;
+  bossAttackCount = 0;
+  bossIgnoreAttacks = false;
+  enemyFall = false;
+  enemyParalyzed = false;
+  enemyCursed = 0;
+  enemyMirror = false;
+  enemyPurifyNext = false;
+  enemySealed = false;
+  enemyShield = 0;
+  enemyAwakened = false;
+  fireTurns = 0;
+
+  if (playerClass === 'sword') {
+    // 다르킨의 낫
+    enemy.form = 2;
+    enemy.name = '다르킨의 낫';
+    enemy.atk = 75;
+    enemy.hp = 1000;
+    enemy.maxHp = 1000;
+    enemy.undying = true;
+    enemy.isBoss = true;
+    enemy.lifestealOnHit = 0.20;
+    enemy.skillEvery = 3;
+    enemy.double = 0;
+    enemy.paralyze = 0;
+    enemy.weapon = {
+      name: '다르킨의 낫',
+      atk: 75,
+      desc: '불사(즉사→최대HP40%피해, 봉인관통) · 흡혈20% · 3턴마다 살상돌격'
+    };
+    await playFx('boss_darkin');
+    await showAbility('🩸 라아스트를 경배하라', '시이다 케인이 다르킨의 낫으로 부활했다!');
+    addLog('system', '2페이즈: 다르킨의 낫 (HP 1000)');
+  } else {
+    // 그림자 암살자
+    enemy.form = 2;
+    enemy.name = '그림자 암살자';
+    enemy.atk = 110;
+    enemy.hp = 700;
+    enemy.maxHp = 700;
+    enemy.undying = false;
+    enemy.lifestealOnHit = 0;
+    enemy.skillEvery = 0;
+    enemy.double = 0.10;
+    enemy.paralyze = 0.10;
+    enemy.weapon = {
+      name: '그림자 암살자',
+      atk: 110,
+      desc: '이중10% · 마비10% · 3턴마다 그림자 장막'
+    };
+    await playFx('boss_shadow');
+    await showAbility('🌑 진정한 그림자의 주인', '시이다 케인이 그림자 암살자로 부활했다!');
+    addLog('system', '2페이즈: 그림자 암살자 (HP 700)');
+  }
+  updateBossBattleUI();
+  return true;
+}
+
+
+
+function upsertRankBoard(nick, lr) {
+  if (!nick) return;
+  nick = String(nick).slice(0, 12);
+  lr = Math.max(0, parseInt(lr, 10) || 0);
+  if (!Array.isArray(saveData.rankBoard)) saveData.rankBoard = [];
+  const i = saveData.rankBoard.findIndex(e => e.nick === nick);
+  if (i >= 0) {
+    if (lr > (saveData.rankBoard[i].lr || 0)) saveData.rankBoard[i].lr = lr;
+  } else {
+    saveData.rankBoard.push({ nick, lr });
+  }
+  // 자신 항상 최신 LR로
+  const me = (saveData.nick || '').trim();
+  if (me) {
+    const mi = saveData.rankBoard.findIndex(e => e.nick === me);
+    if (mi >= 0) saveData.rankBoard[mi].lr = saveData.lr || 0;
+    else saveData.rankBoard.push({ nick: me, lr: saveData.lr || 0 });
+  }
+  saveData.rankBoard.sort((a, b) => (b.lr || 0) - (a.lr || 0));
+  if (saveData.rankBoard.length > 50) saveData.rankBoard = saveData.rankBoard.slice(0, 50);
+}
+
+function openRanking() {
+  upsertRankBoard(saveData.nick || '나', saveData.lr || 0);
+  persistSave();
+  const my = $('rank-my-lr');
+  if (my) my.textContent = `${saveData.nick || '나'} · ${saveData.lr || 0} LR`;
+  const list = $('rank-list');
+  if (list) {
+    const board = (saveData.rankBoard || []).slice().sort((a, b) => (b.lr || 0) - (a.lr || 0));
+    if (!board.length) {
+      list.innerHTML = '<p style="text-align:center;opacity:0.7;">아직 기록이 없습니다. 결투에서 승리하세요!</p>';
+    } else {
+      list.innerHTML = board.map((e, idx) => {
+        const me = (saveData.nick || '') === e.nick;
+        return `<div style="display:flex;justify-content:space-between;padding:10px 12px;margin:4px 0;border-radius:10px;background:${me ? 'rgba(255,215,0,0.15)' : 'rgba(255,255,255,0.06)'};border:1px solid ${me ? '#ffd700' : 'transparent'};">
+          <span>${idx + 1}. ${e.nick}${me ? ' (나)' : ''}</span>
+          <span style="color:#ffd700;font-weight:700;">${e.lr || 0} LR</span>
+        </div>`;
+      }).join('');
+    }
+  }
+  showScreen('ranking-screen');
+}
+
+
+// ========== 실시간 결투 (PeerJS) ==========
+function rtRandRoom() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s = '';
+  for (let i = 0; i < 6; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return s;
+}
+
+function rtSend(obj) {
+  if (rtConn && rtConn.open) {
+    try { rtConn.send(obj); } catch (e) { console.warn(e); }
+  }
+}
+
+function rtSetupConn(conn) {
+  rtConn = conn;
+  conn.on('open', () => {
+    rtConnected = true;
+    rtSend({ type: 'hello', nick: saveData.nick || '익명', lr: saveData.lr || 0 });
+    if (rtIsHost) {
+      $('rt-host-status').textContent = '상대 접속! 로비로 이동합니다...';
+      setTimeout(() => rtEnterLobby(), 400);
+    } else {
+      const st = $('rt-join-status');
+      if (st) st.textContent = '연결됨!';
+      setTimeout(() => rtEnterLobby(), 400);
+    }
+  });
+  conn.on('data', (data) => rtOnData(data));
+  conn.on('close', () => {
+    rtConnected = false;
+    if (rtActive) {
+      alert('상대와의 연결이 끊겼습니다.');
+      rtActive = false;
+      if (!battleEnded) endBattle(false, '상대 연결 끊김');
+    } else {
+      alert('상대가 나갔습니다.');
+      rtLeave();
+    }
+  });
+  conn.on('error', (err) => {
+    console.warn(err);
+    alert('연결 오류: ' + (err && err.type ? err.type : 'unknown'));
+  });
+}
+
+function rtCreateRoom() {
+  if (!requireNick()) return;
+  if (typeof Peer === 'undefined') {
+    alert('PeerJS 로드 실패. 인터넷 연결을 확인하세요.');
+    return;
+  }
+  rtLeave(true);
+  rtIsHost = true;
+  rtRoomId = rtRandRoom();
+  const peerId = 'smg-' + rtRoomId;
+  $('rt-room-code').textContent = rtRoomId;
+  $('rt-host-status').textContent = '서버 연결 중...';
+  showScreen('rt-host-screen');
+  try {
+    rtPeer = new Peer(peerId, { debug: 1 });
+  } catch (e) {
+    alert('Peer 생성 실패');
+    return;
+  }
+  rtPeer.on('open', (id) => {
+    $('rt-host-status').textContent = '방 코드 공유 후 상대 대기 중...';
+  });
+  rtPeer.on('connection', (conn) => {
+    if (rtConn && rtConn.open) {
+      conn.close();
+      return;
+    }
+    rtSetupConn(conn);
+  });
+  rtPeer.on('error', (err) => {
+    $('rt-host-status').textContent = '오류: ' + (err.type || err);
+    if (err.type === 'unavailable-id') {
+      alert('방 코드 충돌. 다시 만들어주세요.');
+      rtLeave();
+    }
+  });
+}
+
+function copyRtRoomCode() {
+  const c = rtRoomId || '';
+  if (!c) return;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(c).then(() => alert('방 코드 복사됨: ' + c)).catch(() => alert(c));
+  } else alert(c);
+}
+
+function rtJoinRoom() {
+  if (!requireNick()) return;
+  if (typeof Peer === 'undefined') {
+    alert('PeerJS 로드 실패. 인터넷 연결을 확인하세요.');
+    return;
+  }
+  const inp = $('rt-join-input');
+  let code = (inp && inp.value ? inp.value : '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (code.length < 4) {
+    alert('방 코드를 입력하세요');
+    return;
+  }
+  rtLeave(true);
+  rtIsHost = false;
+  rtRoomId = code;
+  $('rt-join-status').textContent = '연결 중...';
+  rtPeer = new Peer({ debug: 1 });
+  rtPeer.on('open', () => {
+    const conn = rtPeer.connect('smg-' + code, { reliable: true });
+    rtSetupConn(conn);
+    $('rt-join-status').textContent = '방 연결 시도 중...';
+  });
+  rtPeer.on('error', (err) => {
+    $('rt-join-status').textContent = '오류: ' + (err.type || err);
+    if (err.type === 'peer-unavailable') alert('방을 찾을 수 없습니다. 코드를 확인하세요.');
+  });
+}
+
+function rtEnterLobby() {
+  rtMyReady = false;
+  rtOppReady = false;
+  rtOppBuild = null;
+  const info = $('rt-lobby-info');
+  if (info) info.textContent = `방 ${rtRoomId} · 상대: ${rtOppNick || '연결됨'}`;
+  $('rt-lobby-status').textContent = '강화 후 준비 완료를 누르세요';
+  const rb = $('rt-ready-btn');
+  if (rb) rb.textContent = '준비 완료';
+  showScreen('rt-lobby-screen');
+}
+
+function updateEnhanceRtBox() {
+  const readyBtn = $('btn-rt-ready');
+  const openBtn = $('btn-rt-open');
+  const status = $('enhance-rt-status');
+  const gb = $('btn-go-battle');
+  const mc = $('btn-make-challenge');
+  const connected = !!(rtConnected && rtActive !== true && (rtPeer || rtConn));
+  // rtConnected is the right flag during lobby/enhance before battle
+  const inRoom = !!rtConnected;
+  if (inRoom) {
+    if (rtBuildLocked || rtMyReady) {
+      if (status) status.textContent = `빌드 확정됨 (+${level}) · 상대 대기 중`;
+      if (readyBtn) { readyBtn.style.display = 'block'; readyBtn.disabled = true; readyBtn.textContent = '준비 완료됨'; }
+    } else {
+      if (status) status.textContent = `연결됨 · 방 ${rtRoomId || '?'} · 상대: ${rtOppNick || '대기'}`;
+      if (readyBtn) { readyBtn.style.display = 'block'; readyBtn.disabled = false; readyBtn.textContent = '✅ 이 빌드로 실시간 준비'; }
+    }
+    if (openBtn) openBtn.style.display = 'none';
+    if (gb) gb.style.display = 'none';
+    if (mc) mc.style.display = 'none';
+  } else {
+    if (status) status.textContent = '결투방 연결 후 이 빌드로 실시간 준비할 수 있습니다.';
+    if (readyBtn) readyBtn.style.display = 'none';
+    if (openBtn) openBtn.style.display = 'block';
+    if (gb) gb.style.display = 'block';
+    if (mc) mc.style.display = challengeCreating ? 'block' : 'block';
+  }
+}
+
+function rtGoEnhance() {
+  if (!playerClass) {
+    alert('메인에서 직업을 먼저 선택하세요!');
+    showScreen('select-screen');
+    return;
+  }
+  // 이미 준비 완료 → 재강화 불가
+  if (rtMyReady || rtBuildLocked) {
+    alert('이미 이 빌드로 준비했습니다.\n상대를 기다리거나, 방을 나간 뒤 다시 입장하세요.');
+    showScreen('rt-lobby-screen');
+    return;
+  }
+  // 같은 결투 세션에서 이미 강화 중이면 리셋하지 않고 이어서
+  if (rtEnhanceStarted) {
+    updateEnhanceUI();
+    updateEnhanceRtBox();
+    showScreen('enhance-screen');
+    return;
+  }
+  rtEnhanceStarted = true;
+  startEnhance();
+  updateEnhanceRtBox();
+}
+
+function rtToggleReady() {
+  // from lobby without build - ask to enhance first
+  if (!rtOppBuild && !rtMyReady) {
+    // allow marking ready only after submit build
+  }
+  if (!playerClass || level < 0) {
+    alert('먼저 강화하러 가서 빌드를 확정하세요.');
+    return;
+  }
+  rtSubmitBuild();
+}
+
+function rtSubmitBuild() {
+  if (!rtConnected) {
+    alert('상대와 연결되지 않았습니다.');
+    return;
+  }
+  if (!playerClass) {
+    alert('직업이 없습니다.');
+    return;
+  }
+  if (rtMyReady || rtBuildLocked) {
+    alert('이미 준비 완료된 빌드입니다.');
+    showScreen('rt-lobby-screen');
+    return;
+  }
+  if (level === 0 && !confirm('강화 0으로 준비할까요?')) return;
+  const base = getBaseHp(playerClass);
+  // 최종 체력 확정
+  maxHp = base + level * 50;
+  hp = maxHp;
+  const build = {
+    type: 'ready',
+    nick: saveData.nick || '익명',
+    cls: playerClass,
+    lv: level,
+    hp: maxHp,
+    lr: saveData.lr || 0
+  };
+  rtMyReady = true;
+  rtBuildLocked = true;
+  rtSend(build);
+  $('rt-lobby-status').textContent = '준비 완료! 상대 대기 중... (빌드 확정)';
+  showScreen('rt-lobby-screen');
+  const rb = $('rt-ready-btn');
+  if (rb) { rb.textContent = '준비됨 ✓'; rb.disabled = true; }
+  // 강화 화면 버튼 잠금 상태 반영
+  try { updateEnhanceRtBox(); } catch (e) {}
+  rtTryStart();
+}
+
+function rtTryStart() {
+  if (!(rtMyReady && rtOppReady && rtOppBuild)) return;
+  // Both ready — host starts, host goes first
+  if (rtIsHost) {
+    rtSend({ type: 'start', hostFirst: true });
+    rtBeginBattle(true);
+  }
+}
+
+function rtBeginBattle(iAmFirst) {
+  if (!rtOppBuild) return;
+  rtActive = true;
+  challengeMode = true; // LR only, no badges
+  challengeEnemyData = {
+    nick: rtOppBuild.nick,
+    cls: rtOppBuild.cls,
+    lv: rtOppBuild.lv,
+    maxHp: rtOppBuild.hp,
+    hp: rtOppBuild.hp,
+    lr: rtOppBuild.lr || 0
+  };
+  // Build enemy from opponent
+  const d = challengeEnemyData;
+  enemy = {
+    class: d.cls,
+    level: d.lv,
+    hp: d.maxHp,
+    maxHp: d.maxHp,
+    weapon: getWeapon(d.cls, d.lv, false, null),
+    revived: false,
+    fireTurns: 0,
+    isChallenge: true,
+    nick: d.nick
+  };
+  // reset battle flags (reuse goBattle reset)
+  gameMode = 'normal';
+  playerRevived = false;
+  fireTurns = 0;
+  enemyTurnCount = 0;
+  battleTurn = 0;
+  battleEnded = false;
+  autoMode = false;
+  playerFall = false;
+  enemyFall = false;
+  playerParalyzed = false;
+  enemyParalyzed = false;
+  playerPurifyNext = false;
+  enemyPurifyNext = false;
+  lastDamageTaken = 0;
+  defeatReason = '';
+  playerAwakened = false;
+  enemyAwakened = false;
+  playerAwakenType = null;
+  enemyAwakenType = null;
+  playerExcalTurns = 0;
+  enemyExcalTurns = 0;
+  playerLastStandUsed = false;
+  enemyLastStandUsed = false;
+  playerCursed = 0;
+  enemyCursed = 0;
+  playerMirror = false;
+  enemyMirror = false;
+  playerSealed = false;
+  enemySealed = false;
+  playerShield = 0;
+  enemyShield = 0;
+  playerShieldUsed = false;
+  enemyShieldUsed = false;
+  battleFlags = { tookDamage: false, minHpRatio: 1, awakened: false, shieldUsed: false };
+  // HP from enhance already set
+  if (!maxHp || maxHp <= 0) {
+    maxHp = (getBaseHp(playerClass)) + level * 50;
+    hp = maxHp;
+  }
+
+  const myNick = (saveData.nick || '나').trim() || '나';
+  $('p-name').textContent = `${myNick} (${classLabel(playerClass)})`;
+  const pw = getWeapon(playerClass, level, false, null);
+  $('p-weapon').textContent = `${pw.name} +${level}`;
+  if ($('p-desc')) $('p-desc').textContent = pw.desc || '';
+  $('p-hp-text').textContent = Math.ceil(hp);
+  $('p-hp-fill').style.width = '100%';
+  $('e-name').textContent = `${enemy.nick} (${classLabel(enemy.class)})`;
+  $('e-weapon').textContent = `${enemy.weapon.name} +${enemy.level}`;
+  if ($('e-desc')) $('e-desc').textContent = enemy.weapon.desc || '';
+  $('e-hp-text').textContent = enemy.hp;
+  $('e-hp-fill').style.width = '100%';
+  updateStatusIcons();
+  $('battle-log').innerHTML = '';
+  addLog('system', `실시간 결투! ${myNick} vs ${enemy.nick}`);
+  $('atk-btn').style.display = 'block';
+  $('auto-btn').style.display = 'none';
+  try { const sb = $('surrender-btn'); if (sb) sb.style.display = 'block'; } catch (e) {}
+  rtMyTurn = !!iAmFirst;
+  $('atk-btn').disabled = !rtMyTurn;
+  if (rtMyTurn) addLog('system', '당신 턴! 공격하세요');
+  else addLog('system', '상대 턴 대기 중...');
+  showScreen('battle-screen');
+}
+
+function rtOnData(data) {
+  if (!data || !data.type) return;
+  if (data.type === 'hello') {
+    rtOppNick = data.nick || '상대';
+    if (typeof data.lr === 'number') upsertRankBoard(rtOppNick, data.lr);
+    const info = $('rt-lobby-info');
+    if (info) info.textContent = `방 ${rtRoomId} · 상대: ${rtOppNick}`;
+  } else if (data.type === 'ready') {
+    rtOppReady = true;
+    rtOppBuild = {
+      nick: data.nick,
+      cls: data.cls,
+      lv: data.lv,
+      hp: data.hp,
+      lr: data.lr || 0
+    };
+    upsertRankBoard(data.nick, data.lr || 0);
+    $('rt-lobby-status').textContent = `상대 준비됨: ${data.nick} +${data.lv}`;
+    rtTryStart();
+  } else if (data.type === 'start') {
+    // guest receives start
+    if (!rtIsHost) rtBeginBattle(false);
+  } else if (data.type === 'turn') {
+    // opponent finished their attack — apply mirrored state
+    rtApplyOppTurn(data);
+  } else if (data.type === 'chat') {
+    addLog('system', (data.nick || '상대') + ': ' + data.msg);
+  }
+}
+
+function rtApplyOppTurn(data) {
+  // data: { myHp, oppHp, logLines, ended, win, reason }
+  // From sender's view: myHp=sender, oppHp=me
+  if (typeof data.oppHp === 'number') {
+    hp = Math.max(0, data.oppHp);
+    if (data.oppMaxHp) maxHp = data.oppMaxHp;
+  }
+  if (typeof data.myHp === 'number' && enemy) {
+    enemy.hp = Math.max(0, data.myHp);
+    if (data.myMaxHp) enemy.maxHp = data.myMaxHp;
+  }
+  if (Array.isArray(data.logs)) {
+    data.logs.forEach(l => addLog(l.type || 'system', l.msg));
+  } else if (data.log) {
+    addLog('enemy', data.log);
+  }
+  updateHPBars();
+  updateStatusIcons();
+  // HP가 0인데 ended 플래그가 없어도 강제 종료 (멈춤 방지)
+  if (data.ended || hp <= 0 || (enemy && enemy.hp <= 0)) {
+    clearBattleOverlays();
+    playerAttackLock = false;
+    let iWin;
+    if (data.ended) iWin = !data.win;
+    else if (hp <= 0) iWin = false;
+    else iWin = true;
+    endBattle(iWin, data.reason || (iWin ? '결투 승리' : '결투 패배'));
+    return;
+  }
+  rtMyTurn = true;
+  playerAttackLock = false;
+  const atk = $('atk-btn');
+  if (atk) { atk.style.display = 'block'; atk.disabled = false; }
+  addLog('system', '당신 턴!');
+}
+
+function rtAfterMyTurn(ended, win, reason, logs) {
+  try {
+    const payload = {
+      type: 'turn',
+      myHp: Math.max(0, hp),
+      myMaxHp: maxHp,
+      oppHp: enemy ? Math.max(0, enemy.hp) : 0,
+      oppMaxHp: enemy ? enemy.maxHp : 0,
+      ended: !!ended,
+      win: !!win,
+      reason: reason || '',
+      logs: logs || []
+    };
+    // 종료 신호는 여러 번 보내 상대 멈춤 방지
+    rtSend(payload);
+    if (ended) {
+      setTimeout(() => rtSend(payload), 100);
+      setTimeout(() => rtSend(payload), 400);
+    }
+  } catch (e) { console.warn(e); }
+  rtMyTurn = false;
+  try {
+    const atk = $('atk-btn');
+    if (atk) atk.disabled = true;
+  } catch (e) {}
+  if (!ended) addLog('system', '상대 턴 대기 중...');
+}
+
+function rtLeave(silent) {
+  rtActive = false;
+  rtConnected = false;
+  rtMyReady = false;
+  rtOppReady = false;
+  rtOppBuild = null;
+  rtMyTurn = false;
+  rtEnhanceStarted = false;
+  rtBuildLocked = false;
+  try {
+    const rb = $('rt-ready-btn');
+    if (rb) { rb.textContent = '준비 완료'; rb.disabled = false; }
+  } catch (e) {}
+  try { if (rtConn) rtConn.close(); } catch (e) {}
+  try { if (rtPeer) rtPeer.destroy(); } catch (e) {}
+  rtConn = null;
+  rtPeer = null;
+  rtRoomId = null;
+  try { updateEnhanceRtBox(); } catch (e) {}
+  if (!silent) showScreen('challenge-menu-screen');
+}
+
+// ========== 닉네임 / 결투방 ==========
+function saveNickname() {
+  // 닉은 가입/변경권으로만 변경
+  updateRecordSummary();
+}
+
+function requireNick() {
+  return requireLogin();
+}
+
+function openChallengeMenu() {
+  if (!requireNick()) return;
+  challengeCreating = false;
+  updateRecordSummary();
+  showScreen('challenge-menu-screen');
+}
+
+function startChallengeCreate() {
+  if (!requireNick()) return;
+  challengeCreating = true;
+  challengeMode = false;
+  challengeEnemyData = null;
+  pendingChallenge = null;
+  // 직업 선택 화면으로 — 이미 선택되어 있으면 강화로
+  if (playerClass) {
+    startEnhance();
+  } else {
+    alert('메인에서 직업을 선택한 뒤, 강화하고 결투 코드를 만드세요.');
+    showScreen('select-screen');
+  }
+}
+
+function encodeChallenge(obj) {
+  try {
+    const s = JSON.stringify(obj);
+    return btoa(unescape(encodeURIComponent(s)));
+  } catch (e) {
+    return null;
+  }
+}
+
+function decodeChallenge(code) {
+  try {
+    const raw = (code || '').trim().replace(/\s+/g, '');
+    if (!raw) return null;
+    const s = decodeURIComponent(escape(atob(raw)));
+    const obj = JSON.parse(s);
+    if (!obj || obj.v !== 1) return null;
+    if (obj.cls !== 'sword' && obj.cls !== 'mage') return null;
+    const lv = parseInt(obj.lv, 10);
+    if (!(lv >= 0 && lv <= 10)) return null;
+    const nick = String(obj.nick || '익명').slice(0, 12);
+    const maxHp = parseInt(obj.hp, 10);
+    if (!(maxHp > 0 && maxHp < 100000)) return null;
+    const lr = (typeof obj.lr === 'number' && obj.lr >= 0) ? Math.floor(obj.lr) : 0;
+    return { v: 1, nick, cls: obj.cls, lv, hp: maxHp, maxHp, lr };
+  } catch (e) {
+    return null;
+  }
+}
+
+function finishChallengeCreate() {
+  if (!requireNick()) return;
+  if (!playerClass) {
+    alert('직업이 없습니다.');
+    return;
+  }
+  const base = getBaseHp(playerClass);
+  const payload = {
+    v: 1,
+    nick: saveData.nick,
+    cls: playerClass,
+    lv: level,
+    hp: maxHp || (base + level * 50),
+    lr: saveData.lr || 0
+  };
+  upsertRankBoard(payload.nick, payload.lr);
+  const code = encodeChallenge(payload);
+  if (!code) {
+    alert('결투 코드 생성 실패');
+    return;
+  }
+  const info = $('challenge-create-info');
+  if (info) {
+    info.innerHTML = `<b>${payload.nick}</b> · ${payload.lr} LR<br>${classLabel(payload.cls)} +${payload.lv} · 체력 ${payload.hp}<br><span style="opacity:0.8">승리 시 100 LR</span>`;
+  }
+  const out = $('challenge-code-out');
+  if (out) out.value = code;
+  challengeCreating = false;
+  showScreen('challenge-create-screen');
+}
+
+function copyChallengeCode() {
+  const out = $('challenge-code-out');
+  if (!out || !out.value) return;
+  const val = out.value;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(val).then(() => alert('복사되었습니다!')).catch(() => {
+      out.select();
+      document.execCommand('copy');
+      alert('복사되었습니다!');
+    });
+  } else {
+    out.select();
+    document.execCommand('copy');
+    alert('복사되었습니다!');
+  }
+}
+
+function parseChallengeCode() {
+  const inp = $('challenge-code-input');
+  const prev = $('challenge-preview');
+  const btn = $('challenge-accept-btn');
+  pendingChallenge = null;
+  if (btn) btn.disabled = true;
+  const data = decodeChallenge(inp ? inp.value : '');
+  if (!data) {
+    if (prev) {
+      prev.style.display = 'block';
+      prev.innerHTML = '<span style="color:#ff6b6b;">코드가 올바르지 않습니다.</span>';
+    }
+    return;
+  }
+  pendingChallenge = data;
+  if (typeof data.lr === 'number') upsertRankBoard(data.nick, data.lr);
+  if (prev) {
+    prev.style.display = 'block';
+    prev.innerHTML = `상대: <b style="color:#ffd700">${data.nick}</b> · ${data.lr || 0} LR<br>` +
+      `${classLabel(data.cls)} +${data.lv} · 체력 ${data.maxHp}`;
+  }
+  if (btn) btn.disabled = false;
+}
+
+function acceptChallengeAndPlay() {
+  if (!requireNick()) return;
+  if (!pendingChallenge) {
+    alert('먼저 코드를 확인하세요.');
+    return;
+  }
+  challengeEnemyData = pendingChallenge;
+  challengeMode = true;
+  challengeCreating = false;
+  // 상대와 반대 직업 강제? → 자유롭게 선택. 메인에서 직업 고르고 강화
+  alert(`${challengeEnemyData.nick}(+${challengeEnemyData.lv})와 결투합니다!\n직업을 고른 뒤 강화하세요.`);
+  showScreen('play-menu-screen');
+}
+
+function buildEnemyFromChallenge() {
+  const d = challengeEnemyData;
+  if (!d) return null;
+  const w = getWeapon(d.cls, d.lv, false, null);
+  return {
+    class: d.cls,
+    level: d.lv,
+    hp: d.maxHp,
+    maxHp: d.maxHp,
+    weapon: w,
+    revived: false,
+    fireTurns: 0,
+    isChallenge: true,
+    nick: d.nick
+  };
+}
+
+// ========== 직업 선택 ==========
+function selectClass(cls) {
+  ensureShopSave();
+  if (cls === 'assassin' && !saveData.shop.assassin) { alert('상점에서 암살자를 해금하세요!'); return; }
+  if (cls === 'priest' && !saveData.shop.priest) { alert('상점에서 성직자를 해금하세요!'); return; }
+  if (cls === 'archer' && !saveData.shop.archer) { alert('상점에서 궁수를 해금하세요!'); return; }
+  playerClass = cls;
+  document.querySelectorAll('.class-card').forEach(c => c.classList.remove('selected'));
+  const card = document.querySelector(`.class-card[data-cls="${cls}"]`) || $('cls-' + cls);
+  if (card) card.classList.add('selected');
+  const sb = $('start-btn');
+  if (sb) sb.disabled = false;
+}
+
+function startEnhance() {
+  if (!playerClass) return;
+  level = 0;
+  chances = 25 + (shopBuff.extraChances || 0);
+  if (shopBuff.extraChances) {
+    shopBuff.extraChances = 0;
+  }
+  successRate = 100;
+  maxHp = getBaseHp(playerClass);
+  hp = maxHp;
+  // 적 레벨은 전투 시작 시 플레이어 레벨 ±1~2로 결정
+  enemyPreviewLevel = 0;
+  updateEnhanceUI();
+  try { updateEnhanceRtBox(); } catch (e) {}
+  showScreen('enhance-screen');
+}
+
+function updateEnhanceUI() {
+  const w = getWeapon(playerClass, level, false, null);
+  $('w-name').textContent = w.name;
+  $('w-level').textContent = `+${level}`;
+  $('w-atk').textContent = level === 0 ? '공격력 0 (강화 필요)' : `공격력 ${w.atk}`;
+  if ($('w-desc')) {
+    $('w-desc').textContent = (w.desc && level > 0) ? `능력: ${w.desc}` : '';
+  }
+  $('hp-text').textContent = `${hp} / ${maxHp}`;
+  $('hp-fill').style.width = `${(hp / maxHp) * 100}%`;
+  $('chance').textContent = chances;
+  $('rate').textContent = level >= 10 ? '-' : getSuccessRate(level);
+  if ($('enemy-level-preview')) {
+    const lo = Math.max(1, level - 2);
+    const hi = Math.min(10, Math.max(level, 1) + 2);
+    $('enemy-level-preview').textContent = level === 0 ? '+1~3 예상' : `+${lo}~${hi} (나 ±1~2)`;
+  }
+}
+
+// ========== 강화 ==========
+async function doEnhance(type) {
+  if (rtBuildLocked || rtMyReady) {
+    alert('결투 빌드가 확정되어 더 이상 강화할 수 없습니다!');
+    return;
+  }
+  if (level >= 10) {
+    alert('이미 최고 강화(+10)입니다!');
+    return;
+  }
+  if (chances <= 0) {
+    alert('기회가 없습니다!');
+    return;
+  }
+
+  let attempts = 1;
+  let rateMult = 1;
+  let cost = 2;
+
+  if (type === 'basic') {
+    cost = 2;
+    attempts = 1;
+    rateMult = 1;
+    if (chances < 2) { alert('일반 강화는 기회 2회가 필요합니다!'); return; }
+  } else if (type === 'super') {
+    cost = 3;
+    attempts = 1;
+    rateMult = 1.5;
+    if (chances < 3) { alert('슈퍼 강화는 기회 3회가 필요합니다!'); return; }
+  } else {
+    return;
+  }
+
+  // 기회 먼저 차감
+  chances -= cost;
+
+  // 연출 시작
+  $('enhance-anim').classList.add('active');
+  $('result-text').classList.remove('show', 'result-success', 'result-fail');
+  $('result-text').textContent = '';
+
+  for (let i = 0; i < attempts; i++) {
+    if (level >= 10) break;
+
+    await animateSlot();
+
+    const rate = Math.min(100, getSuccessRate(level) * rateMult);
+    const success = (rand() * 100) < rate;
+
+    if (success) {
+      level = Math.min(10, level + 1);
+      const base = getBaseHp(playerClass);
+      maxHp = base + level * 50;
+      hp = maxHp;
+      showResult(true, `+${level} 성공!`);
+      await sleep(700);
+    } else {
+      // 5강 이상 실패 시 20% 확률로 1강 하락
+      if (level >= 5 && rand() < 0.20) {
+        level = Math.max(0, level - 1);
+        const base = getBaseHp(playerClass);
+        maxHp = base + level * 50;
+        hp = Math.min(hp, maxHp);
+        showResult(false, `실패... 등급 하락! (+${level})`);
+      } else {
+        showResult(false, '실패...');
+      }
+      await sleep(700);
+    }
+  }
+
+  $('enhance-anim').classList.remove('active');
+  updateEnhanceUI();
+}
+
+function animateSlot() {
+  return new Promise(resolve => {
+    const slot = $('slot');
+    const symbols = ['⚔️', '✨', '🔥', '💥', '🌟', '⚡', '🗡️', '🪄'];
+    let count = 0;
+    const interval = setInterval(() => {
+      slot.textContent = symbols[Math.floor(rand() * symbols.length)];
+      count++;
+      if (count > 15) {
+        clearInterval(interval);
+        resolve();
+      }
+    }, 60);
+  });
+}
+
+function showResult(success, text) {
+  const el = $('result-text');
+  el.textContent = text;
+  el.className = 'result-text show ' + (success ? 'result-success' : 'result-fail');
+}
+
+function sleep(ms) {
+  return new Promise(r => setTimeout(r, ms));
+}
+
+// ========== 전투 준비 ==========
+function goBattle() {
+  if (level === 0) {
+    if (!confirm('강화 없이 싸우시겠습니까? (공격력 0)')) return;
+  }
+
+  if (challengeMode && challengeEnemyData) {
+    gameMode = 'normal';
+    pendingRaidBoss = false;
+    enemy = buildEnemyFromChallenge();
+    if (!enemy) {
+      alert('도전장 데이터가 손상되었습니다.');
+      challengeMode = false;
+      challengeEnemyData = null;
+      return;
+    }
+  } else if (pendingRaidBoss) {
+    gameMode = 'raid';
+    pendingRaidBoss = false;
+    const def = RAID_BOSSES[selectedRaidBossId] || RAID_BOSSES.ancient_mage;
+    const bossHp = def.hp;
+    enemy = {
+      class: def.id === 'ancient_mage' ? 'mage' : 'sword',
+      level: 10,
+      name: def.name,
+      nick: def.name,
+      raidId: def.id,
+      isBoss: true,
+      isRaid: true,
+      hp: bossHp,
+      maxHp: bossHp,
+      atk: def.atk,
+      weapon: {
+        name: def.weaponName,
+        atk: def.atk,
+        desc: def.desc,
+        double: 0.12,
+        paralyze: 0.10
+      },
+      revived: false,
+      fireTurns: 0
+    };
+  } else {
+  gameMode = 'normal';
+  // 적 레벨 = 플레이어 레벨과 같거나 ±1~2
+  let enemyClass = 'sword';
+  if (playerClass === 'sword') enemyClass = 'mage';
+  else if (playerClass === 'mage') enemyClass = 'sword';
+  else enemyClass = Math.random() < 0.5 ? 'sword' : 'mage';
+  const baseLv = Math.max(1, level);
+  const offset = Math.floor(rand() * 5) - 2; // -2, -1, 0, 1, 2
+  let enemyLevel = clamp(baseLv + offset, 1, 10);
+  enemyPreviewLevel = enemyLevel;
+  const enemyBase = getBaseHp(enemyClass);
+  const enemyMaxHp = enemyBase + (enemyLevel * 50);
+  
+  enemy = {
+    class: enemyClass,
+    level: enemyLevel,
+    hp: enemyMaxHp,
+    maxHp: enemyMaxHp,
+    weapon: getWeapon(enemyClass, enemyLevel, false, null),
+    revived: false,
+    fireTurns: 0
+  };
+  }
+
+  // 상점 체력 버프 적용 (1회)
+  if (shopBuff.bonusHp) {
+    maxHp += shopBuff.bonusHp;
+    hp = maxHp;
+    shopBuff.bonusHp = 0;
+  }
+
+  // 플레이어 상태 리셋 (전투용)
+  playerRevived = false;
+  fireTurns = 0;
+  enemyTurnCount = 0;
+  battleTurn = 0;
+  battleEnded = false;
+  autoMode = false;
+  playerAttackLock = false;
+  playerFall = false;
+  enemyFall = false;
+  playerParalyzed = false;
+  enemyParalyzed = false;
+  playerPurifyNext = false;
+  enemyPurifyNext = false;
+  lastDamageTaken = 0;
+  defeatReason = '';
+  playerAwakened = false;
+  enemyAwakened = false;
+  playerAwakenType = null;
+  enemyAwakenType = null;
+  playerExcalTurns = 0;
+  enemyExcalTurns = 0;
+  playerLastStandUsed = false;
+  enemyLastStandUsed = false;
+  playerCursed = 0;
+  enemyCursed = 0;
+  playerMirror = false;
+  enemyMirror = false;
+  playerSealed = false;
+  enemySealed = false;
+  playerShield = 0;
+  enemyShield = 0;
+  playerShieldUsed = false;
+  enemyShieldUsed = false;
+  battleFlags = { tookDamage: false, minHpRatio: 1, awakened: false, shieldUsed: false };
+
+  // UI
+  const myNick = (saveData.nick || '나').trim() || '나';
+  $('p-name').textContent = `${myNick} (${classLabel(playerClass)})`;
+  const pw = getWeapon(playerClass, level, false, null);
+  $('p-weapon').textContent = `${pw.name} +${level}`;
+  updateStatusIcons();
+  if ($('p-desc')) $('p-desc').textContent = pw.desc || '';
+  $('p-hp-text').textContent = hp;
+  $('p-hp-fill').style.width = '100%';
+  $('p-hp-fill').style.background = 'linear-gradient(90deg, #00b09b, #96c93d)';
+
+  if (enemy.isRaid || enemy.isBoss) {
+    $('e-name').textContent = enemy.name || enemy.nick || '보스';
+    if (gameMode === 'raid') $('p-name').textContent = `${myNick} (${classLabel(playerClass)}) [보스전]`;
+  } else if (enemy.isChallenge && enemy.nick) {
+    $('e-name').textContent = `${enemy.nick} (${classLabel(enemy.class)})`;
+  } else {
+    $('e-name').textContent = `적 (${classLabel(enemy.class)})`;
+  }
+  $('e-weapon').textContent = enemy.isRaid
+    ? `${enemy.weapon.name}`
+    : `${enemy.weapon.name} +${enemy.level}`;
+  if ($('e-desc')) $('e-desc').textContent = enemy.weapon.desc || '';
+  $('e-hp-text').textContent = enemy.hp;
+  $('e-hp-fill').style.width = '100%';
+
+  $('battle-log').innerHTML = '';
+  addLog('system', challengeMode && enemy.nick
+    ? `결투! ${myNick}(+${level}) vs ${enemy.nick}(+${enemy.level})`
+    : gameMode === 'raid'
+      ? `보스전! ${myNick}(+${level}) vs ${enemy.name}`
+      : `전투 시작! ${myNick}(+${level}) vs 적(+${enemy.level})`);
+  $('atk-btn').style.display = 'block';
+  $('atk-btn').disabled = false;
+  $('auto-btn').style.display = 'block';
+  $('auto-btn').textContent = '자동 전투';
+  try {
+    const sb = $('surrender-btn');
+    if (sb) sb.style.display = 'block';
+  } catch (e) {}
+
+  showScreen('battle-screen');
+}
+
+// ========== 전투 로직 ==========
+function addLog(type, msg) {
+  const log = $('battle-log');
+  const div = document.createElement('div');
+  div.className = `log-entry log-${type}`;
+  div.textContent = msg;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
+function updateHPBars() {
+  try {
+    if ($('p-hp-text')) $('p-hp-text').textContent = Math.max(0, Math.floor(hp));
+    if ($('p-hp-fill') && maxHp > 0) $('p-hp-fill').style.width = `${clamp(hp / maxHp * 100, 0, 100)}%`;
+    if (enemy) {
+      if ($('e-hp-text')) $('e-hp-text').textContent = Math.max(0, Math.floor(enemy.hp));
+      if ($('e-hp-fill') && enemy.maxHp > 0) $('e-hp-fill').style.width = `${clamp(enemy.hp / enemy.maxHp * 100, 0, 100)}%`;
+    }
+  } catch (e) {}
+}
+
+function showAbility(title, desc) {
+  return new Promise(resolve => {
+    try {
+      if (battleEnded) { resolve(); return; }
+      const t = $('ab-title'); const d = $('ab-desc'); const p = $('ability-popup');
+      if (t) t.textContent = title;
+      if (d) d.textContent = desc || '';
+      if (p) p.classList.add('active');
+      setTimeout(() => {
+        if (p) p.classList.remove('active');
+        resolve();
+      }, battleEnded ? 0 : 380);
+    } catch (e) { resolve(); }
+  });
+}
+
+function playFx(type) {
+  return new Promise(resolve => {
+    const overlay = $('fx-overlay');
+    if (!overlay) { resolve(); return; }
+    overlay.innerHTML = '';
+    overlay.classList.add('active');
+    const app = $('app');
+    if (app) {
+      app.classList.remove('fx-screen-shake');
+      void app.offsetWidth;
+      app.classList.add('fx-screen-shake');
+    }
+
+    if (type === 'slash' || type === 'chamgyeok') {
+      const s1 = document.createElement('div'); s1.className = 'fx-slash';
+      const s2 = document.createElement('div'); s2.className = 'fx-slash2';
+      const crack = document.createElement('div'); crack.className = 'fx-crack';
+      overlay.appendChild(crack);
+      overlay.appendChild(s1);
+      overlay.appendChild(s2);
+      const t = document.createElement('div');
+      t.className = 'fx-kill-text';
+      t.style.color = '#ffe08a';
+      t.style.textShadow = '0 0 18px #ff4400, 0 0 36px #ff0000, 0 2px 0 #000';
+      t.style.transform = 'translate(-50%, -50%) scaleX(1.05)';
+      t.textContent = '⚔️ 세계를 가르는 참격!';
+      overlay.appendChild(t);
+    } else if (type === 'kill' || type === 'instant') {
+      const flash = document.createElement('div'); flash.className = 'fx-kill-flash';
+      const t = document.createElement('div'); t.className = 'fx-kill-text';
+      t.textContent = '💀 즉사!';
+      overlay.appendChild(flash);
+      overlay.appendChild(t);
+      // 파티클
+      const parts = document.createElement('div'); parts.className = 'fx-particles';
+      for (let i = 0; i < 16; i++) {
+        const p = document.createElement('div');
+        p.className = 'fx-particle';
+        p.style.left = '50%'; p.style.top = '45%';
+        p.style.background = i % 2 ? '#ff4444' : '#ffd700';
+        p.style.setProperty('--tx', (Math.random() * 200 - 100) + 'px');
+        p.style.setProperty('--ty', (Math.random() * 200 - 100) + 'px');
+        parts.appendChild(p);
+      }
+      overlay.appendChild(parts);
+    } else if (type === 'awaken' || type === 'awaken_guardian') {
+      const isGuard = type === 'awaken_guardian';
+      const glow = document.createElement('div'); glow.className = 'fx-awaken';
+      if (isGuard) {
+        glow.style.background = 'radial-gradient(circle, rgba(180,220,255,0.55) 0%, rgba(100,180,255,0.35) 45%, transparent 70%)';
+      }
+      const t = document.createElement('div'); t.className = 'fx-awaken-text';
+      if (isGuard) {
+        t.style.color = '#a8d8ff';
+        t.style.textShadow = '0 0 25px #66aaff, 0 0 50px #88ccff';
+        t.textContent = '👼 각성! 수호천사';
+      } else {
+        t.textContent = '⚔️ 각성! 엑스칼리버';
+      }
+      overlay.appendChild(glow);
+      overlay.appendChild(t);
+      const parts = document.createElement('div'); parts.className = 'fx-particles';
+      for (let i = 0; i < 20; i++) {
+        const p = document.createElement('div');
+        p.className = 'fx-particle';
+        p.style.left = '50%'; p.style.top = '40%';
+        if (isGuard) p.style.background = i % 2 ? '#a8d8ff' : '#ffffff';
+        p.style.setProperty('--tx', (Math.random() * 240 - 120) + 'px');
+        p.style.setProperty('--ty', (Math.random() * 240 - 120) + 'px');
+        parts.appendChild(p);
+      }
+      overlay.appendChild(parts);
+    } else if (type === 'boss_darkin') {
+      const glow = document.createElement('div'); glow.className = 'fx-awaken';
+      glow.style.background = 'radial-gradient(circle, rgba(180,0,40,0.65) 0%, rgba(80,0,0,0.45) 45%, transparent 70%)';
+      const t = document.createElement('div'); t.className = 'fx-awaken-text';
+      t.style.color = '#ff4466';
+      t.style.textShadow = '0 0 25px #ff0022, 0 0 50px #880000';
+      t.textContent = '🩸 라아스트를 경배하라';
+      overlay.appendChild(glow);
+      overlay.appendChild(t);
+      const parts = document.createElement('div'); parts.className = 'fx-particles';
+      for (let i = 0; i < 22; i++) {
+        const p = document.createElement('div');
+        p.className = 'fx-particle';
+        p.style.left = '50%'; p.style.top = '40%';
+        p.style.background = i % 2 ? '#ff2244' : '#ffd700';
+        p.style.setProperty('--tx', (Math.random() * 240 - 120) + 'px');
+        p.style.setProperty('--ty', (Math.random() * 240 - 120) + 'px');
+        parts.appendChild(p);
+      }
+      overlay.appendChild(parts);
+    } else if (type === 'boss_shadow') {
+      const glow = document.createElement('div'); glow.className = 'fx-awaken';
+      glow.style.background = 'radial-gradient(circle, rgba(40,0,60,0.7) 0%, rgba(0,0,0,0.55) 50%, transparent 72%)';
+      const t = document.createElement('div'); t.className = 'fx-awaken-text';
+      t.style.color = '#cc99ff';
+      t.style.textShadow = '0 0 25px #8800ff, 0 0 50px #440088';
+      t.textContent = '🌑 진정한 그림자의 주인';
+      overlay.appendChild(glow);
+      overlay.appendChild(t);
+      const parts = document.createElement('div'); parts.className = 'fx-particles';
+      for (let i = 0; i < 22; i++) {
+        const p = document.createElement('div');
+        p.className = 'fx-particle';
+        p.style.left = '50%'; p.style.top = '40%';
+        p.style.background = i % 2 ? '#aa66ff' : '#222222';
+        p.style.setProperty('--tx', (Math.random() * 240 - 120) + 'px');
+        p.style.setProperty('--ty', (Math.random() * 240 - 120) + 'px');
+        parts.appendChild(p);
+      }
+      overlay.appendChild(parts);
+    } else if (type === 'seal') {
+      const flash = document.createElement('div'); flash.className = 'fx-kill-flash';
+      flash.style.background = 'radial-gradient(circle, rgba(100,100,255,0.6) 0%, rgba(0,0,0,0.5) 70%)';
+      const t = document.createElement('div'); t.className = 'fx-kill-text';
+      t.style.color = '#88aaff';
+      t.textContent = '🔒 봉인!';
+      overlay.appendChild(flash);
+      overlay.appendChild(t);
+    } else if (type === 'supernova') {
+      const flash = document.createElement('div'); flash.className = 'fx-kill-flash';
+      flash.style.background = 'radial-gradient(circle, rgba(255,200,50,0.8) 0%, rgba(255,50,0,0.4) 40%, transparent 70%)';
+      const t = document.createElement('div'); t.className = 'fx-kill-text';
+      t.style.color = '#ffaa00';
+      t.textContent = '💥 초신성 폭발!';
+      overlay.appendChild(flash);
+      overlay.appendChild(t);
+    }
+
+    setTimeout(() => {
+      overlay.classList.remove('active');
+      overlay.innerHTML = '';
+      if (app) app.classList.remove('fx-screen-shake');
+      resolve();
+    }, (type === 'awaken' || type === 'boss_darkin' || type === 'boss_shadow') ? 700 : 500);
+  });
+}
+
+let playerAttackLock = false;
+async function playerAttack() {
+  if (battleEnded) return;
+  if (playerAttackLock) return;
+  if (rtActive && !rtMyTurn) {
+    addLog('system', '상대 턴입니다');
+    return;
+  }
+  playerAttackLock = true;
+  $('atk-btn').disabled = true;
+  updateStatusIcons();
+  try {
+
+  if (playerSealed) {
+    playerSealed = false;
+    await showAbility('🔒 봉인!', '봉인되어 행동할 수 없다!');
+    addLog('ability', '봉인으로 턴 스킵');
+    updateStatusIcons();
+    if (rtActive) {
+      rtAfterMyTurn(false, false, '', [{ type: 'ability', msg: '봉인으로 턴 스킵' }]);
+      return;
+    }
+    await sleep(300);
+    await enemyAttack();
+    return;
+  }
+  if (playerParalyzed) {
+    playerParalyzed = false;
+    await showAbility('💫 마비!', '몸이 굳어서 공격할 수 없다!');
+    addLog('ability', '마비로 턴 스킵...');
+    updateStatusIcons();
+    if (rtActive) {
+      rtAfterMyTurn(false, false, '', [{ type: 'ability', msg: '마비로 턴 스킵' }]);
+      return;
+    }
+    await sleep(300);
+    await enemyAttack();
+    return;
+  }
+
+  // 각성 체크 (철검 / 성자)
+  let baseW = getWeapon(playerClass, level, false, null);
+  if (!playerAwakened && baseW.awakenChance && rand() < baseW.awakenChance) {
+    playerAwakened = true;
+    playerAwakenType = 'excalibur';
+    playerExcalTurns = 2;
+    playerLastStandUsed = false;
+    battleFlags.awakened = true;
+    await playFx('awaken');
+    await showAbility('⚔️ 각성!', '엑스칼리버로 전향!');
+    addLog('ability', '각성! 엑스칼리버 등장 (2턴 후 파괴)');
+    $('p-weapon').textContent = `엑스칼리버 +${level}`;
+    if ($('p-desc')) $('p-desc').textContent = EXCALIBUR.desc;
+  }
+  if (!playerAwakened && baseW.guardianAwaken && rand() < baseW.guardianAwaken) {
+    playerAwakened = true;
+    playerAwakenType = 'guardian';
+    playerLastStandUsed = false;
+    battleFlags.awakened = true;
+    await playFx('awaken_guardian');
+    await showAbility('👼 각성!', '수호천사로 전향!');
+    addLog('ability', '각성! 수호천사');
+    unlockBadge('sp_guardian');
+    $('p-weapon').textContent = `수호천사 +${level}`;
+    if ($('p-desc')) $('p-desc').textContent = GUARDIAN.desc;
+    // 각성 즉시 보호막
+    playerShield = Math.max(playerShield, 0) + 50;
+    await showAbility('🛡️ 수호 보호막!', `보호막 +50 (현재 ${playerShield})`);
+    updateStatusIcons();
+  }
+
+  // 수호천사 매턴 보호막 +50 (상한 300)
+  if (playerAwakened && playerAwakenType === 'guardian') {
+    playerShield = Math.min(300, playerShield + 50);
+    addLog('ability', `수호천사 보호막 +50 (현재 ${playerShield})`);
+    updateStatusIcons();
+  }
+
+  let myW = getWeapon(playerClass, level, playerAwakened, playerAwakenType);
+  let w = myW;          // 공격력용 (기본: 내 무기)
+  let abilityW = myW;   // 능력용 (미러링 시 상대 무기)
+  // 미러링: 공격은 내 무기, 능력은 상대 무기 확률
+  let mirroringThisTurn = false;
+  if (playerMirror) {
+    playerMirror = false;
+    mirroringThisTurn = true;
+    if (enemy && enemy.isBoss) {
+      // 보스는 무기 테이블에 없음 → 보스 스탯/특수능력 복사
+      abilityW = Object.assign({}, enemy.weapon || { name: enemy.name, atk: enemy.atk || 0 });
+      if (enemy.double) abilityW.double = enemy.double;
+      if (enemy.paralyze) abilityW.paralyze = enemy.paralyze;
+      if (enemy.lifestealOnHit) abilityW.lifesteal = enemy.lifestealOnHit;
+    } else if (enemyAwakened) {
+      abilityW = enemyAwakenType === 'guardian' ? Object.assign({}, GUARDIAN) : Object.assign({}, EXCALIBUR);
+    } else {
+      abilityW = Object.assign({}, getWeapon(enemy.class, enemy.level, false, null));
+      if (enemy.weapon) Object.assign(abilityW, enemy.weapon);
+    }
+    await showAbility('🪞 미러링!', `내 공격력 + 상대[${abilityW.name}] 능력!`);
+    addLog('ability', `미러링: 공격=${myW.name}(${myW.atk}) / 능력=${abilityW.name}`);
+  }
+
+  let dmg = w.atk || 0;
+  if (playerCursed > 0) dmg = Math.floor(dmg * Math.pow(0.7, playerCursed));
+  let logMsg = mirroringThisTurn
+    ? `미러링! ${myW.name} ${dmg} 데미지 + [${abilityW.name}] 능력`
+    : `내가 ${w.name}으로 ${dmg} 데미지!`;
+  // 미러링 턴에는 상대 능력 강제 허용 (저주여도)
+  const canAbility = playerCursed <= 0 || mirroringThisTurn;
+
+  // 타락: 이번 공격(데미지+능력)이 전부 나에게
+  let fallSelf = false;
+  if (playerFall) {
+    playerFall = false;
+    fallSelf = true;
+    await showAbility('😈 타락 발동!', '내 공격과 능력이 나에게로!');
+    addLog('ability', '타락: 공격/능력 자기 자신에게');
+  }
+
+  // 즉사/봉인/참격
+  if (canAbility && abilityW.instant) {
+    const ikRate = (hp < maxHp * 0.30 && abilityW.instantLow) ? abilityW.instantLow : abilityW.instant;
+    if (rand() < ikRate) {
+      const isCham = abilityW.name === '세계를 가르는 검' || (abilityW.instantLow != null && abilityW.name !== '엑스칼리버');
+      const title = abilityW.name === '엑스칼리버' ? '⚔️ 엑스칼리버 즉사!' : (isCham ? '⚔️ 세계를 가르는 참격!' : '💀 즉사!');
+      await playFx(isCham ? 'chamgyeok' : 'kill');
+      if (fallSelf) {
+        await showAbility(title, '타락으로 즉사가 자신에게!');
+        hp = 0;
+        if (await tryPlayerBossWeaponSwitch()) {
+          updateHPBars();
+          $('atk-btn').disabled = false;
+          if (autoMode) scheduleAutoAttack(400);
+          return;
+        }
+        if (rtActive) rtAfterMyTurn(true, false, '타락 즉사');
+        endBattle(false, '타락 즉사');
+        return;
+      }
+      if (await applyBossUndying(isCham ? '참격' : '즉사')) {
+        if (rtActive) {
+          rtAfterMyTurn(false, false, '', [{ type: 'ability', msg: '불사 발동' }]);
+          return;
+        }
+        await sleep(280);
+        await enemyAttack();
+        return;
+      } else {
+        await showAbility(title, '상대를 즉사시켰다!');
+        enemy.hp = 0;
+        if (await tryBossTransform()) {
+          updateHPBars();
+          await sleep(400);
+          await enemyAttack();
+          return;
+        } else {
+          if (rtActive) rtAfterMyTurn(true, true, isCham ? '세계를 가르는 참격' : '즉사');
+          endBattle(true, isCham ? '세계를 가르는 참격' : (abilityW.name === '엑스칼리버' ? '엑스칼리버 즉사' : '즉사'));
+          return;
+        }
+      }
+    }
+  }
+  if (canAbility && abilityW.seal && rand() < abilityW.seal) {
+    await playFx('seal');
+    await showAbility('🔒 봉인!', '상대를 봉인했다! (즉사)');
+    enemy.hp = 0;
+    // 봉인은 불사도 관통
+    if (await tryBossTransform()) {
+      updateHPBars();
+      await sleep(400);
+      await enemyAttack();
+      return;
+    }
+    // 다르킨의 낫(2페이즈) 봉인 처치
+    if (gameMode === 'boss' && enemy && enemy.isBoss && enemy.name === '다르킨의 낫') {
+      if (rtActive) rtAfterMyTurn(true, true, '봉인');
+      endBattle(true, '봉인으로 다르킨의 낫 처치');
+      return;
+    }
+    if (rtActive) rtAfterMyTurn(true, true, '봉인');
+    endBattle(true, '봉인');
+    return;
+  }
+  if (canAbility && abilityW.instantCond && hp < maxHp * 0.6 && rand() < abilityW.instantCond) {
+    await playFx('supernova');
+    if (await applyBossUndying('초신성')) {
+      if (rtActive) {
+        rtAfterMyTurn(false, false, '', [{ type: 'ability', msg: '불사(초신성)' }]);
+        return;
+      }
+      await sleep(280);
+      await enemyAttack();
+      return;
+    } else {
+      await showAbility('💥 초신성 폭발!', '체력 60% 미만 즉사!');
+      enemy.hp = 0;
+      if (await tryBossTransform()) {
+        updateHPBars();
+        await sleep(400);
+        await enemyAttack();
+        return;
+      } else {
+        if (rtActive) rtAfterMyTurn(true, true, '초신성 폭발');
+        endBattle(true, '초신성 폭발');
+        return;
+      }
+    }
+  }
+
+  // 성자 회복 (플레이어)
+  if (canAbility && abilityW.heal) {
+    const h = healAmount(abilityW.heal, true);
+    hp = Math.min(maxHp, hp + h);
+    addLog('ability', `체력 회복 +${h}` + (h < abilityW.heal ? ' (화염으로 반감)' : ''));
+  }
+  let doubleHit = false;
+  if (canAbility && abilityW.double && rand() < abilityW.double) {
+    doubleHit = true;
+    await showAbility('⚡ 이중 공격!', '한 턴에 공격 두 번!');
+    logMsg = `이중 공격! ${dmg} x2`;
+  }
+  if (canAbility && abilityW.extra && rand() < abilityW.extraRate) {
+    dmg += abilityW.extra;
+    await showAbility('🐍 추가 타격!', `+${abilityW.extra}`);
+    logMsg += ` (+${abilityW.extra})`;
+  }
+  if (canAbility && !fallSelf && abilityW.absorb) {
+    let absorbAmt = Math.floor(Math.max(0, enemy.hp) * abilityW.absorb);
+    const absorbed = dmgEnemy(absorbAmt);
+    if (absorbed > 0) {
+      let heal = healAmount(absorbed, true);
+      hp = Math.min(maxHp, hp + heal);
+      await showAbility('🩸 생명 흡수!', `${heal} 흡수!`);
+    }
+  }
+  if (canAbility && !fallSelf && abilityW.halfkill && rand() < abilityW.halfkill) {
+    const half = Math.floor(Math.max(0, enemy.hp) * 0.5);
+    const hd = dmgEnemy(half);
+    if (hd > 0) await showAbility('🌑 몰락의 밤!', `체력 절반(${hd}) 삭제!`);
+    else await showAbility('🌑 몰락의 밤!', '막혔다...');
+  }
+  if (canAbility && abilityW.purify && rand() < abilityW.purify) {
+    const hasStatus = playerParalyzed || playerFall || playerCursed > 0 || playerSealed || (enemy.fireTurns && enemy.fireTurns > 0);
+    if (hasStatus) {
+      playerParalyzed = false; playerFall = false; playerCursed = 0; playerSealed = false;
+      if (enemy.fireTurns) enemy.fireTurns = 0;
+      await showAbility('✨ 정화!', '걸려 있던 상태이상을 모두 제거했다!');
+      addLog('ability', '정화: 상태이상 제거');
+    } else {
+      playerPurifyNext = true;
+      await showAbility('✨ 정화 준비!', '다음 상대 상태이상·부패를 무효화합니다!');
+      addLog('ability', '정화: 다음 턴 상대 능력 무시 대기');
+    }
+  }
+  if (canAbility && !fallSelf && abilityW.fire && rand() < (abilityW.fireRate || 0.05)) {
+    if (hasNullify(false)) {
+      await showAbility('💧 적의 능력 무효!', '화염이 막혔다!');
+    } else {
+      fireTurns = 2;
+      await showAbility('🔥 화염 부여!', '2턴 화염! (현재HP 2% + 회복 반감)');
+    }
+  }
+  if (canAbility && !fallSelf && abilityW.paralyze && rand() < abilityW.paralyze) {
+    if (enemyShield > 0) {
+      await showAbility('🛡️ 보호막!', '상태이상이 막혔다!');
+    } else if (hasNullify(false)) {
+      await showAbility('💧 적의 능력 무효!', '마비가 막혔다!');
+    } else {
+      enemyParalyzed = true;
+      await showAbility('💫 마비!', '상대 턴 스킵!');
+    }
+  }
+  if (canAbility && !fallSelf && abilityW.fall && rand() < abilityW.fall) {
+    if (enemyShield > 0) {
+      await showAbility('🛡️ 보호막!', '상태이상이 막혔다!');
+    } else if (hasNullify(false)) {
+      await showAbility('💧 적의 능력 무효!', '타락이 막혔다!');
+    } else {
+      enemyFall = true;
+      await showAbility('😈 타락!', '다음 상대 공격이 반사!');
+    }
+  }
+  if (canAbility && !fallSelf && abilityW.curse && rand() < abilityW.curse) {
+    if (enemyShield > 0) {
+      await showAbility('🛡️ 보호막!', '상태이상이 막혔다!');
+    } else if (hasNullify(false)) {
+      await showAbility('💧 적의 능력 무효!', '저주가 막혔다!');
+    } else if (enemyCursed >= 2) {
+      // 중첩 최대, 알림 없음
+    } else {
+      enemyCursed++;
+      await showAbility('☠️ 저주!', `저주 ${enemyCursed}중첩! 능력제한 · 뎀 ${Math.round((1-Math.pow(0.7,enemyCursed))*100)}%↓`);
+    }
+  }
+  // 미러링 준비: 이번 턴이 미러 발동 턴이면 재준비하지 않음 (버그 방지)
+  if (canAbility && !fallSelf && !mirroringThisTurn && abilityW.mirror && rand() < abilityW.mirror) {
+    playerMirror = true;
+    await showAbility('🪞 미러링 준비!', '다음 공격에 상대 능력 사용!');
+    addLog('ability', '미러링 준비 완료');
+  }
+
+  // 데미지 적용
+  let dealtToEnemy = 0;
+  if (fallSelf) {
+    const actual = dmgPlayer(dmg);
+    lastDamageTaken += actual;
+    addLog('player', `타락 반사! 자신에게 ${dmg}`);
+    // 타락 시 능력도 자기에게: 부패/화염 등 자기 디버프
+    if (canAbility && abilityW.corrupt) {
+      const hasC = (typeof abilityW.corrupt === 'boolean' && abilityW.corrupt) || (typeof abilityW.corrupt === 'number' && rand() < abilityW.corrupt);
+      if (hasC) {
+        const cDmg = Math.floor(Math.max(1, hp) * 0.10);
+        const a = dmgPlayer(cDmg);
+        lastDamageTaken += a;
+        await showAbility('☠️ 타락 부패!', `자신에게 부패 ${cDmg}!`);
+      }
+    }
+    if (canAbility && abilityW.fire && rand() < (abilityW.fireRate || 0.05)) {
+      enemy.fireTurns = 2; // 자기 화염 디버프
+      await showAbility('🔥 타락 화염!', '자신에게 화염!');
+    }
+  } else if ((() => {
+    try {
+      const ew = enemyAwakened ? (enemyAwakenType === 'guardian' ? GUARDIAN : EXCALIBUR) : (enemy && enemy.weapon);
+      return ew && ew.dodge && rand() < ew.dodge;
+    } catch (e) { return false; }
+  })()) {
+    await showAbility('🛡️ 공격 무시!', '신의 눈물!');
+  } else {
+    if (gameMode === 'boss' && bossIgnoreAttacks) {
+      await showAbility('🌑 공격 무시!', '그림자 암살자가 공격을 흘렸다!');
+      dealtToEnemy = 0;
+      addLog('player', '공격이 그림자에 의해 무시됨');
+    } else {
+    const dealt = dmgEnemy(dmg);
+    dealtToEnemy = Math.max(0, dealt);
+    addLog('player', logMsg + (dealt < dmg && dealt > 0 ? ` (실피해 ${dealt})` : (dealt === 0 ? ' (막힘)' : '')));
+    if (abilityW.lifesteal) {
+      let ls = Math.max(1, Math.floor(dmg * abilityW.lifesteal));
+      ls = healAmount(ls, true);
+      hp = Math.min(maxHp, hp + ls);
+      await showAbility('🩸 흡혈!', `${ls} 회복!`);
+      addLog('ability', `흡혈 ${ls}`);
+    }
+    // 이중: 두 번째 타격 (데미지만 한 번 더)
+    if (doubleHit && !(gameMode === 'boss' && bossIgnoreAttacks)) {
+      const dealt2 = dmgEnemy(dmg);
+      if (dealt2 > 0) {
+        dealtToEnemy += dealt2;
+        addLog('player', `이중 2타! ${dealt2} 데미지`);
+        if (abilityW.lifesteal) {
+          let ls2 = Math.max(1, Math.floor(dmg * abilityW.lifesteal));
+          ls2 = healAmount(ls2, true);
+          hp = Math.min(maxHp, hp + ls2);
+        }
+      }
+    }
+    } // boss ignore else
+  }
+  if (fireTurns > 0) {
+    const fDmg = Math.max(1, Math.floor(Math.max(1, enemy.hp) * 0.02));
+    const fd = dmgEnemy(fDmg);
+    fireTurns--;
+    if (fd > 0) {
+      dealtToEnemy += fd;
+      await showAbility('🔥 화염!', `현재 체력 2% (${fd}) 추가 피해! (남은 ${fireTurns}턴)`);
+      addLog('ability', `화염 ${fd} (남은 ${fireTurns})`);
+    } else {
+      addLog('ability', `화염 무효 (남은 ${fireTurns})`);
+    }
+  }
+  // 내 부패 (타락으로 이미 처리했으면 스킵)
+  if (!fallSelf) {
+    const myWNow = abilityW;
+    const myCorruptNow = (typeof myWNow.corrupt === 'boolean' && myWNow.corrupt) || (typeof myWNow.corrupt === 'number' && rand() < myWNow.corrupt);
+    if (myCorruptNow && enemyPurifyNext) {
+      enemyPurifyNext = false;
+      await showAbility('✨ 적의 정화!', '내 부패가 무효화되었다!');
+    } else if (myCorruptNow && hasNullify(false)) {
+      await showAbility('💧 적의 능력 무효!', '부패가 막혔다!');
+    } else if (myCorruptNow) {
+      const cDmg = Math.floor(Math.max(1, enemy.hp) * 0.10);
+      dmgEnemy(cDmg);
+      await showAbility('☠️ 부패!', `적 체력 10% (${cDmg}) 감소!`);
+      addLog('ability', `내 부패로 적 ${cDmg} 피해`);
+    }
+  }
+
+  // 적 보호막 발동 체크
+  if (tryActivateShield(false)) {
+    await showAbility('🛡️ 성자의 보호막!', '적에게 보호막 250 부여! 상태이상 무효!');
+  }
+  if (enemy.weapon && enemy.weapon.lastsupper && dealtToEnemy > 0) {
+    if (enemy.hp > enemy.maxHp * 0.10) {
+      const rate = typeof enemy.weapon.lastsupper === 'number' ? enemy.weapon.lastsupper : 0.20;
+      let healAmt = Math.floor(dealtToEnemy * rate);
+      healAmt = healAmount(healAmt, false);
+      enemy.hp = Math.min(enemy.maxHp, enemy.hp + healAmt);
+      await showAbility('🍷 적의 최후의 만찬!', `${healAmt} 회복`);
+    } else {
+      await showAbility('🍷 최후의 만찬 실패!', '적 체력 10% 이하 — 사용 불가');
+    }
+  }
+
+  // 엑스칼리버 턴 소모
+  if (playerAwakened && playerAwakenType === 'excalibur') {
+    playerExcalTurns--;
+    if (playerExcalTurns <= 0) {
+      playerAwakened = false;
+      playerAwakenType = null;
+      await showAbility('💥 파괴!', '엑스칼리버가 파괴되었다!');
+      addLog('ability', '엑스칼리버 파괴');
+      const nw = getWeapon(playerClass, level, false, null);
+      $('p-weapon').textContent = `${nw.name} +${level}`;
+      if ($('p-desc')) $('p-desc').textContent = nw.desc || '';
+    }
+  }
+
+  updateHPBars();
+  updateStatusIcons();
+
+  // 적 최후의 저항
+  if (enemy.hp <= 0 && enemyAwakened && !enemyLastStandUsed) {
+    enemyLastStandUsed = true;
+    if (enemyAwakenType === 'guardian') {
+      enemy.hp = Math.max(1, Math.floor(enemy.maxHp * 0.25));
+      await showAbility('👼 적의 수호천사 부활!', '적 체력 25% 부활!');
+    } else {
+      enemy.hp = 1;
+      await showAbility('🛡️ 최후의 저항!', '적이 체력 1로 버텼다!');
+    }
+  }
+  if (enemy.hp <= 0 && enemy && !enemy.revived) {
+    const ew = enemyAwakened
+      ? (enemyAwakenType === 'guardian' ? GUARDIAN : EXCALIBUR)
+      : enemy.weapon;
+    if (ew && ew.revive) {
+      enemy.revived = true;
+      enemy.hp = Math.max(1, Math.floor(enemy.maxHp * 0.5));
+      await showAbility('👑 적의 신의 유산 부활!', '적 체력 50% 부활!');
+    }
+  }
+  if (enemy.hp <= 0) {
+    if (await tryBossTransform()) {
+      updateHPBars();
+      // 보스 턴으로
+      await sleep(500);
+      await enemyAttack();
+      return;
+    }
+    if (rtActive) rtAfterMyTurn(true, true, '전투 승리');
+    endBattle(true, gameMode === 'boss' ? '이벤트 토벌' : '전투 승리');
+    return;
+  }
+
+  // 마비로 적 턴 스킵
+  if (enemyParalyzed) {
+    enemyParalyzed = false;
+    addLog('ability', '적 마비로 턴 스킵');
+    updateStatusIcons();
+    if (rtActive) {
+      const ended = enemy.hp <= 0 || hp <= 0;
+      const win = enemy.hp <= 0 && hp > 0;
+      if (ended) {
+        if (rtActive) rtAfterMyTurn(true, win, win ? '결투 승리' : '결투 패배');
+        endBattle(win, win ? '결투 승리' : '결투 패배');
+      } else {
+        rtAfterMyTurn(false, false, '', []);
+      }
+      return;
+    }
+    $('atk-btn').disabled = false;
+    if (autoMode) scheduleAutoAttack(400);
+    return;
+  }
+
+  if (rtActive) {
+    // 실시간: 내 공격만 하고 상대 턴으로 (적 자동 반격 없음)
+    updateHPBars();
+    if (enemy.hp <= 0) {
+      if (rtActive) rtAfterMyTurn(true, true, '결투 승리');
+      endBattle(true, '결투 승리');
+      return;
+    }
+    if (hp <= 0) {
+      if (rtActive) rtAfterMyTurn(true, false, '결투 패배');
+      endBattle(false, '결투 패배');
+      return;
+    }
+    rtAfterMyTurn(false, false, '', []);
+    return;
+  }
+
+  await sleep(280);
+  await enemyAttack();
+  } finally {
+    playerAttackLock = false;
+  }
+}
+
+async function enemyAttack() {
+  if (battleEnded) return;
+  enemyTurnCount++;
+  lastDamageTaken = 0;
+  updateStatusIcons();
+
+  if (enemySealed) {
+    enemySealed = false;
+    await showAbility('🔒 봉인!', '적이 봉인되어 행동 불가!');
+    updateStatusIcons();
+    $('atk-btn').disabled = false;
+    if (autoMode) scheduleAutoAttack(400);
+    return;
+  }
+  if (enemyParalyzed) {
+    enemyParalyzed = false;
+    await showAbility('💫 마비!', '적이 마비 상태!');
+    updateStatusIcons();
+    $('atk-btn').disabled = false;
+    if (autoMode) scheduleAutoAttack(400);
+    return;
+  }
+
+  // 적 각성
+  let baseEW = getWeapon(enemy.class, enemy.level, false, null);
+  if (!enemyAwakened && baseEW.awakenChance && rand() < baseEW.awakenChance) {
+    enemyAwakened = true;
+    enemyAwakenType = 'excalibur';
+    enemyExcalTurns = 2;
+    enemyLastStandUsed = false;
+    enemy.weapon = Object.assign({}, EXCALIBUR);
+    await playFx('awaken');
+    await showAbility('⚔️ 적 각성!', '적이 엑스칼리버로!');
+    $('e-weapon').textContent = `엑스칼리버 +${enemy.level}`;
+    if ($('e-desc')) $('e-desc').textContent = EXCALIBUR.desc;
+  }
+  if (!enemyAwakened && baseEW.guardianAwaken && rand() < baseEW.guardianAwaken) {
+    enemyAwakened = true;
+    enemyAwakenType = 'guardian';
+    enemyLastStandUsed = false;
+    enemy.weapon = Object.assign({}, GUARDIAN);
+    await playFx('awaken_guardian');
+    await showAbility('👼 적 각성!', '적이 수호천사로!');
+    $('e-weapon').textContent = `수호천사 +${enemy.level}`;
+    if ($('e-desc')) $('e-desc').textContent = GUARDIAN.desc;
+  }
+  if (enemyAwakened && enemyAwakenType === 'guardian') {
+    enemyShield = Math.min(300, (enemyShield || 0) + 50);
+    addLog('ability', `적 수호천사 보호막 +50`);
+  }
+
+
+  // ===== 보스 전용 공격 =====
+  if (gameMode === 'boss' && enemy && enemy.isBoss) {
+    bossAttackCount++;
+    let dmg = enemy.atk || 60;
+    let usedSkill = false;
+    let bossDoubleHit = false;
+
+    // 1) 능력(확률): 마비 등 — 항상 확률대로
+    if (enemy.paralyze && rand() < enemy.paralyze) {
+      if (playerShield > 0) {
+        await showAbility('🛡️ 보호막!', '마비 차단!');
+      } else if (playerPurifyNext) {
+        playerPurifyNext = false;
+        await showAbility('✨ 정화!', '마비 무효!');
+      } else if (hasNullify(true)) {
+        await showAbility('💧 능력 무효!', '신의 눈물이 마비 무효!');
+      } else {
+        playerParalyzed = true;
+        await showAbility('💫 마비!', '다음 턴 스킵!');
+      }
+    }
+
+    // 2) 스킬: 3턴마다 반복
+    if (enemy.name === '다르킨의 낫' && bossAttackCount % 3 === 0) {
+      usedSkill = true;
+      dmg = 120;
+      await showAbility('💀 살상돌격!', '120 데미지 + 체력 100 회복!');
+      enemy.hp = Math.min(enemy.maxHp, enemy.hp + 100);
+      addLog('ability', '살상돌격! (3턴마다)');
+    } else if (enemy.name === '그림자 암살자' && bossAttackCount % 3 === 0) {
+      usedSkill = true;
+      bossIgnoreAttacks = true;
+      await showAbility('🌑 그림자 장막!', '내 공격을 확정 무시! (다음 보스 턴까지)');
+      addLog('ability', '그림자 장막! (3턴마다)');
+    } else if (enemy.name === '그림자 암살자') {
+      bossIgnoreAttacks = false;
+    }
+
+    // 능력(확률): 이중 — 항상 (다르킨 살상돌격 턴은 스킬 데미지 우선이라 이중 제외)
+    if (!(usedSkill && enemy.name === '다르킨의 낫') && enemy.double && rand() < enemy.double) {
+      bossDoubleHit = true;
+      await showAbility('⚡ 이중 공격!', '보스 공격 두 번!');
+    }
+
+    // 3) 플레이어 신의 눈물 회피
+    let bossDodged = false;
+    try {
+      const pw = getWeapon(playerClass, level, playerAwakened, playerAwakenType);
+      if (pw && pw.dodge && rand() < pw.dodge) {
+        bossDodged = true;
+        await showAbility('🛡️ 공격 무시!', '신의 눈물! (50%)');
+      }
+    } catch (e) {}
+
+    // 4) 데미지
+    let actual = 0;
+    if (!bossDodged) {
+      actual = dmgPlayer(dmg);
+      lastDamageTaken += actual;
+      addLog('enemy', `${enemy.name}의 공격! ${dmg} 데미지`);
+      if (bossDoubleHit) {
+        const actual2 = dmgPlayer(dmg);
+        lastDamageTaken += actual2;
+        actual += actual2;
+        addLog('enemy', `이중 2타! ${dmg}`);
+      }
+      if (enemy.lifestealOnHit && actual > 0) {
+        const heal = Math.floor(actual * enemy.lifestealOnHit);
+        enemy.hp = Math.min(enemy.maxHp, enemy.hp + heal);
+        await showAbility('🩸 흡혈!', `보스 체력 +${heal}`);
+      }
+    } else {
+      addLog('enemy', `${enemy.name}의 공격이 무시됨`);
+    }
+
+
+    updateHPBars();
+    updateStatusIcons();
+    updateBossBattleUI();
+
+    // 플레이어 사망 처리
+    if (hp <= 0 && playerAwakened && !playerLastStandUsed) {
+      playerLastStandUsed = true;
+      if (playerAwakenType === 'guardian') {
+        hp = Math.max(1, Math.floor(maxHp * 0.25));
+        await showAbility('👼 수호천사 부활!', '체력 25%로 부활!');
+      } else {
+        hp = 1;
+        await showAbility('🛡️ 최후의 저항!', '체력 1로 버텼다!');
+      }
+      updateHPBars();
+    }
+    if (hp <= 0 && !playerRevived) {
+      const legW = getWeapon(playerClass, level, playerAwakened, playerAwakenType);
+      if (legW && legW.revive) {
+        playerRevived = true;
+        hp = Math.max(1, Math.floor(maxHp * 0.5));
+        await showAbility('👑 신의 유산 부활!', '체력 50%로 부활!');
+        updateHPBars();
+      }
+    }
+    // 보스전에서도 만찬·보호막 처리
+    if (tryActivateShield(true)) {
+      await showAbility('🛡️ 성자의 보호막!', '보호막 250 부여! 상태이상 무효!');
+    }
+    const bossMyW = getWeapon(playerClass, level, playerAwakened, playerAwakenType);
+    if (bossMyW && bossMyW.lastsupper && lastDamageTaken > 0) {
+      if (hp > maxHp * 0.10) {
+        const rate = typeof bossMyW.lastsupper === 'number' ? bossMyW.lastsupper : 0.20;
+        let healAmt = Math.floor(lastDamageTaken * rate);
+        healAmt = healAmount(healAmt, true);
+        hp = Math.min(maxHp, hp + healAmt);
+        await showAbility('🍷 최후의 만찬!', `${healAmt} 회복!`);
+      } else {
+        await showAbility('🍷 최후의 만찬 실패!', '체력 10% 이하 — 사용 불가');
+      }
+      lastDamageTaken = 0;
+    }
+
+    if (hp <= 0) {
+      if (await tryPlayerBossWeaponSwitch()) {
+        updateHPBars();
+        $('atk-btn').disabled = false;
+        if (autoMode) scheduleAutoAttack(400);
+        return;
+      }
+      endBattle(false, enemy.name + '에게 패배');
+      return;
+    }
+
+    $('atk-btn').disabled = false;
+    if (autoMode) scheduleAutoAttack(400);
+    return;
+  }
+
+  let enemyMyW = enemyAwakened
+    ? (enemyAwakenType === 'guardian' ? Object.assign({}, GUARDIAN) : Object.assign({}, EXCALIBUR))
+    : Object.assign({}, enemy.weapon || getWeapon(enemy.class, enemy.level, false, null));
+  let w = enemyMyW;
+  let abilityW = enemyMyW;
+  let enemyMirroringThisTurn = false;
+  if (enemyMirror) {
+    enemyMirror = false;
+    enemyMirroringThisTurn = true;
+    // 적은 자기 공격력 유지, 능력만 플레이어 것
+    abilityW = getWeapon(playerClass, level, playerAwakened, playerAwakenType);
+    await showAbility('🪞 적의 미러링!', `적 공격력 + 내[${abilityW.name}] 능력!`);
+  }
+
+  let dmg = w.atk || 0;
+  if (enemyCursed > 0) dmg = Math.floor(dmg * Math.pow(0.7, enemyCursed));
+  let logMsg = enemyMirroringThisTurn
+    ? `적 미러링! ${dmg} 데미지 + [${abilityW.name}] 능력`
+    : `적이 ${w.name}으로 ${dmg} 데미지!`;
+  const canAbility = enemyCursed <= 0 || enemyMirroringThisTurn;
+
+  // 타락: 적 공격+능력이 적 자신에게
+  let enemyFallSelf = false;
+  if (enemyFall) {
+    enemyFall = false;
+    enemyFallSelf = true;
+    await showAbility('😈 타락 발동!', '적 공격과 능력이 적에게로!');
+  }
+
+  if (canAbility && abilityW.instant) {
+    const ikRate = (enemy.hp < enemy.maxHp * 0.30 && abilityW.instantLow) ? abilityW.instantLow : abilityW.instant;
+    if (rand() < ikRate) {
+      const isCham = abilityW.name === '세계를 가르는 검' || (abilityW.instantLow != null && abilityW.name !== '엑스칼리버');
+      await playFx(isCham ? 'chamgyeok' : 'kill');
+      if (playerShield > 0) {
+        await showAbility('🛡️ 보호막 방어!', `즉사를 막았다! (보호막 ${playerShield} 소모)`);
+        playerShield = 0;
+        updateStatusIcons();
+      } else {
+      await showAbility(isCham ? '⚔️ 적의 세계를 가르는 참격!' : '⚔️ 적의 즉사!', '즉사 당했다...');
+      hp = 0;
+      if (playerAwakened && !playerLastStandUsed) {
+        playerLastStandUsed = true;
+        if (playerAwakenType === 'guardian') {
+          hp = Math.max(1, Math.floor(maxHp * 0.25));
+          await showAbility('👼 수호천사 부활!', '체력 25%로 부활!');
+        } else {
+          hp = 1;
+          await showAbility('🛡️ 최후의 저항!', '체력 1로 버텼다!');
+        }
+      } else if (!playerRevived && (() => { const lw = getWeapon(playerClass, level, false, null); return lw && lw.revive; })()) {
+        playerRevived = true;
+        hp = Math.max(1, Math.floor(maxHp * 0.5));
+        await showAbility('👑 신의 유산 부활!', '체력 50%로 부활!');
+        updateHPBars();
+      } else {
+        if (await tryPlayerBossWeaponSwitch()) {
+          updateHPBars();
+          $('atk-btn').disabled = false;
+          if (autoMode) scheduleAutoAttack(400);
+          return;
+        }
+        endBattle(false, isCham ? '세계를 가르는 참격' : '즉사');
+        return;
+      }
+      } // else shield
+    }
+  }
+  if (canAbility && abilityW.seal && rand() < abilityW.seal) {
+    await playFx('seal');
+    await showAbility('🔒 적의 봉인!', '봉인 당했다!');
+    hp = 0;
+    if (playerAwakened && !playerLastStandUsed) {
+      playerLastStandUsed = true;
+      if (playerAwakenType === 'guardian') {
+        hp = Math.max(1, Math.floor(maxHp * 0.25));
+        await showAbility('👼 수호천사 부활!', '체력 25%로 부활!');
+      } else {
+        hp = 1;
+        await showAbility('🛡️ 최후의 저항!', '체력 1로 버텼다!');
+      }
+    } else if (!playerRevived && (() => { const lw = getWeapon(playerClass, level, false, null); return lw && lw.revive; })()) {
+      playerRevived = true;
+      hp = Math.max(1, Math.floor(maxHp * 0.5));
+      await showAbility('👑 신의 유산 부활!', '체력 50%로 부활!');
+      updateHPBars();
+    } else {
+      if (await tryPlayerBossWeaponSwitch()) {
+        updateHPBars();
+        $('atk-btn').disabled = false;
+        if (autoMode) scheduleAutoAttack(400);
+        return;
+      }
+      endBattle(false, '봉인');
+      return;
+    }
+  }
+  if (canAbility && abilityW.instantCond && enemy.hp < enemy.maxHp * 0.6 && rand() < abilityW.instantCond) {
+    await playFx('supernova');
+    await showAbility('💥 적의 초신성 폭발!', '체력 60% 미만 즉사!');
+    hp = 0;
+    if (playerAwakened && !playerLastStandUsed) {
+      playerLastStandUsed = true;
+      if (playerAwakenType === 'guardian') {
+        hp = Math.max(1, Math.floor(maxHp * 0.25));
+        await showAbility('👼 수호천사 부활!', '체력 25%로 부활!');
+      } else {
+        hp = 1;
+        await showAbility('🛡️ 최후의 저항!', '체력 1로 버텼다!');
+      }
+    } else if (!playerRevived && (() => { const lw = getWeapon(playerClass, level, false, null); return lw && lw.revive; })()) {
+      playerRevived = true;
+      hp = Math.max(1, Math.floor(maxHp * 0.5));
+      await showAbility('👑 신의 유산 부활!', '체력 50%로 부활!');
+      updateHPBars();
+    } else {
+      if (await tryPlayerBossWeaponSwitch()) {
+        updateHPBars();
+        $('atk-btn').disabled = false;
+        if (autoMode) scheduleAutoAttack(400);
+        return;
+      }
+      endBattle(false, '초신성 폭발');
+      return;
+    }
+  }
+
+  let enemyDoubleHit = false;
+  if (canAbility && abilityW.double && rand() < abilityW.double) { enemyDoubleHit = true; logMsg = `적 이중 공격! ${dmg} x2`; await showAbility('⚡ 적의 이중 공격!', '공격 두 번!'); }
+  if (canAbility && abilityW.extra && rand() < (abilityW.extraRate || 0)) { dmg += abilityW.extra; }
+  if (canAbility && abilityW.absorb) {
+    let absorbAmt = Math.floor(Math.max(0, hp) * abilityW.absorb);
+    const actual = dmgPlayer(absorbAmt);
+    lastDamageTaken += actual;
+    absorbAmt = healAmount(absorbAmt, false);
+    enemy.hp = Math.min(enemy.maxHp, enemy.hp + absorbAmt);
+  }
+  if (canAbility && abilityW.halfkill && rand() < abilityW.halfkill) {
+    const half = Math.floor(Math.max(0, hp) * 0.5);
+    const actual = dmgPlayer(half);
+    lastDamageTaken += actual;
+    await showAbility('🌑 적의 몰락의 밤!', `절반(${half}) 삭제!`);
+  }
+  if (canAbility && abilityW.purify && rand() < abilityW.purify) {
+    if (enemyFall || enemyCursed) {
+      enemyFall = false; enemyCursed = 0;
+      await showAbility('✨ 적의 정화!', '상태이상 제거');
+    } else {
+      enemyPurifyNext = true;
+      await showAbility('✨ 적의 정화!', '다음 내 능력 무시');
+    }
+  }
+  if (canAbility && abilityW.heal) {
+    const h = healAmount(abilityW.heal, false);
+    enemy.hp = Math.min(enemy.maxHp, enemy.hp + h);
+    addLog('ability', `적 회복 +${h}` + (h < abilityW.heal ? ' (화염으로 반감)' : ''));
+  }
+  if (canAbility && !enemyFallSelf && abilityW.fall && rand() < abilityW.fall) {
+    if (playerShield > 0) {
+      await showAbility('🛡️ 보호막!', '상태이상이 막혔다!');
+    } else if (playerPurifyNext) {
+      await showAbility('✨ 정화 발동!', '적의 타락을 무효화했다!');
+      addLog('ability', '정화로 타락 무효');
+    } else if (hasNullify(true)) {
+      await showAbility('💧 능력 무효!', '신의 눈물이 타락을 무효화!');
+    } else {
+      playerFall = true;
+      await showAbility('😈 적의 타락!', '다음 내 공격 반사!');
+    }
+  }
+  if (canAbility && !enemyFallSelf && abilityW.paralyze && rand() < abilityW.paralyze) {
+    if (playerShield > 0) {
+      await showAbility('🛡️ 보호막!', '상태이상이 막혔다!');
+    } else if (playerPurifyNext) {
+      await showAbility('✨ 정화 발동!', '적의 마비를 무효화했다!');
+      addLog('ability', '정화로 마비 무효');
+    } else if (hasNullify(true)) {
+      await showAbility('💧 능력 무효!', '신의 눈물이 마비를 무효화!');
+    } else {
+      playerParalyzed = true;
+      await showAbility('💫 적의 마비!', '다음 턴 스킵!');
+    }
+  }
+  if (canAbility && abilityW.fire && rand() < (abilityW.fireRate || 0.05)) {
+    if (hasNullify(true)) {
+      await showAbility('💧 능력 무효!', '신의 눈물이 화염을 무효화!');
+    } else {
+      enemy.fireTurns = 2;
+      await showAbility('🔥 적의 화염 부여!', '2턴 화염! (현재HP 2% + 회복 반감)');
+    }
+  }
+  if (canAbility && abilityW.curse && rand() < abilityW.curse) {
+    if (playerShield > 0) {
+      await showAbility('🛡️ 보호막!', '상태이상이 막혔다!');
+    } else if (playerPurifyNext) {
+      await showAbility('✨ 정화 발동!', '적의 저주를 무효화했다!');
+      addLog('ability', '정화로 저주 무효');
+    } else if (hasNullify(true)) {
+      await showAbility('💧 능력 무효!', '신의 눈물이 저주를 무효화!');
+    } else if (playerCursed >= 2) {
+      // 중첩 최대, 알림 없음
+    } else {
+      playerCursed++;
+      await showAbility('☠️ 적의 저주!', `저주 ${playerCursed}중첩! 능력제한 · 뎀 ${Math.round((1-Math.pow(0.7,playerCursed))*100)}%↓`);
+    }
+  }
+  if (canAbility && !enemyMirroringThisTurn && abilityW.mirror && rand() < abilityW.mirror) {
+    enemyMirror = true;
+    await showAbility('🪞 적의 미러링 준비!', '다음 적 공격에 내 능력!');
+  }
+  if (canAbility && abilityW.lifesteal) {
+    // applied after damage
+  }
+
+  const myW = getWeapon(playerClass, level, playerAwakened, playerAwakenType);
+  let dodged = false;
+  if (myW && myW.dodge && rand() < myW.dodge) {
+    dodged = true;
+    await showAbility('🛡️ 공격 무시!', '신의 눈물! (50%)');
+  }
+
+  if (enemyFallSelf) {
+    dmgEnemy(dmg);
+    addLog('enemy', `타락 반사! 적에게 ${dmg}`);
+    if (canAbility && w.corrupt) {
+      const hasC = (typeof w.corrupt === 'boolean' && w.corrupt) || (typeof w.corrupt === 'number' && rand() < w.corrupt);
+      if (hasC) {
+        const cDmg = Math.floor(Math.max(1, enemy.hp) * 0.10);
+        dmgEnemy(cDmg);
+        await showAbility('☠️ 타락 부패!', `적에게 부패 ${cDmg}!`);
+      }
+    }
+  } else if (!dodged) {
+    const hasCorrupt = (typeof w.corrupt === 'boolean' && w.corrupt) || (typeof w.corrupt === 'number' && rand() < w.corrupt);
+    if (hasCorrupt) {
+      if (playerPurifyNext) {
+        await showAbility('✨ 정화 발동!', '적의 부패를 무효화했다!');
+        addLog('ability', '정화로 부패 무효');
+      } else if (hasNullify(true)) {
+        await showAbility('💧 능력 무효!', '신의 눈물이 부패를 무효화!');
+      } else {
+        const corruptDmg = Math.floor(Math.max(1, hp) * 0.10);
+        const actualC = dmgPlayer(corruptDmg);
+        lastDamageTaken += actualC;
+        await showAbility('☠️ 부패!', `체력 10% (${corruptDmg}) 감소!`);
+      }
+    }
+    const actual = dmgPlayer(dmg);
+    lastDamageTaken += actual;
+    addLog('enemy', logMsg);
+    if (abilityW.lifesteal) {
+      let ls = Math.floor(dmg * abilityW.lifesteal);
+      ls = healAmount(ls, false);
+      enemy.hp = Math.min(enemy.maxHp, enemy.hp + ls);
+    }
+    if (typeof enemyDoubleHit !== 'undefined' && enemyDoubleHit) {
+      const actual2 = dmgPlayer(dmg);
+      lastDamageTaken += actual2;
+      addLog('enemy', `이중 2타! ${dmg}`);
+      if (abilityW.lifesteal) {
+        let ls2 = Math.floor(dmg * abilityW.lifesteal);
+        ls2 = healAmount(ls2, false);
+        enemy.hp = Math.min(enemy.maxHp, enemy.hp + ls2);
+      }
+    }
+  }
+  if (playerPurifyNext) {
+    playerPurifyNext = false;
+    addLog('ability', '정화 효과가 소모되었다');
+  }
+
+  // 적 화염 도트 (플레이어에게 걸린 화염)
+  if (enemy.fireTurns && enemy.fireTurns > 0) {
+    const fDmg = Math.max(1, Math.floor(Math.max(1, hp) * 0.02));
+    const actualF = dmgPlayer(fDmg);
+    lastDamageTaken += actualF;
+    enemy.fireTurns--;
+    await showAbility('🔥 화염!', `현재 체력 2% (${fDmg}) 피해! (남은 ${enemy.fireTurns}턴)`);
+    addLog('ability', `화염 ${fDmg} (남은 ${enemy.fireTurns})`);
+  }
+
+  // 성자 보호막 발동 체크 (플레이어)
+  if (tryActivateShield(true)) {
+    await showAbility('🛡️ 성자의 보호막!', '보호막 250 부여! 상태이상 무효!');
+  }
+
+  if (myW.lastsupper && lastDamageTaken > 0) {
+    if (hp > maxHp * 0.10) {
+      const rate = typeof myW.lastsupper === 'number' ? myW.lastsupper : 0.20;
+      let healAmt = Math.floor(lastDamageTaken * rate);
+      healAmt = healAmount(healAmt, true);
+      hp = Math.min(maxHp, hp + healAmt);
+      await showAbility('🍷 최후의 만찬!', `${healAmt} 회복! (${Math.round(rate*100)}%)`);
+    } else {
+      await showAbility('🍷 최후의 만찬 실패!', '체력 10% 이하 — 사용 불가');
+    }
+    lastDamageTaken = 0;
+  }
+
+  if (enemyPurifyNext) enemyPurifyNext = false;
+
+  if (enemyAwakened && enemyAwakenType === 'excalibur') {
+    enemyExcalTurns--;
+    if (enemyExcalTurns <= 0) {
+      enemyAwakened = false;
+      enemyAwakenType = null;
+      enemy.weapon = getWeapon(enemy.class, enemy.level, false, null);
+      await showAbility('💥 파괴!', '적 엑스칼리버 파괴!');
+      $('e-weapon').textContent = `${enemy.weapon.name} +${enemy.level}`;
+      if ($('e-desc')) $('e-desc').textContent = enemy.weapon.desc || '';
+    }
+  }
+
+  updateHPBars();
+  updateStatusIcons();
+
+  if (hp <= 0 && playerAwakened && !playerLastStandUsed) {
+    playerLastStandUsed = true;
+    if (playerAwakenType === 'guardian') {
+      hp = Math.max(1, Math.floor(maxHp * 0.25));
+      await showAbility('👼 수호천사 부활!', '체력 25%로 부활!');
+    } else {
+      hp = 1;
+      await showAbility('🛡️ 최후의 저항!', '체력 1로 버텼다!');
+    }
+    updateHPBars();
+  }
+  // 신의 유산 부활 (1회, 체력 50%) — 이벤트전에서는 무기 교체만 사용
+  if (hp <= 0 && !playerRevived) {
+    const legW = getWeapon(playerClass, level, playerAwakened, playerAwakenType);
+    if (legW && legW.revive) {
+      playerRevived = true;
+      hp = Math.max(1, Math.floor(maxHp * 0.5));
+      await showAbility('👑 신의 유산 부활!', '체력 50%로 부활!');
+      updateHPBars();
+    }
+  }
+  if (hp <= 0) {
+    if (await tryPlayerBossWeaponSwitch()) {
+      updateHPBars();
+      $('atk-btn').disabled = false;
+      if (autoMode) scheduleAutoAttack(400);
+      return;
+    }
+    endBattle(false, '전투 패배');
+    return;
+  }
+  if (enemy.hp <= 0) {
+    endBattle(true, '전투 승리');
+    return;
+  }
+
+  $('atk-btn').disabled = false;
+  if (autoMode) scheduleAutoAttack(500);
+}
+
+function scheduleAutoAttack(delay) {
+  const d = delay == null ? 420 : delay;
+  setTimeout(() => {
+    if (!autoMode || battleEnded || rtActive) return;
+    if (playerAttackLock) {
+      // 락이 아직이면 한 번 더 대기
+      setTimeout(() => {
+        if (autoMode && !battleEnded && !playerAttackLock && !rtActive) {
+          try { $('atk-btn').disabled = false; } catch (e) {}
+          playerAttack();
+        }
+      }, 200);
+      return;
+    }
+    try { $('atk-btn').disabled = false; } catch (e) {}
+    playerAttack();
+  }, d);
+}
+
+function toggleAuto() {
+  autoMode = !autoMode;
+  try {
+    $('auto-btn').textContent = autoMode ? '자동 중지' : '자동 전투';
+  } catch (e) {}
+  if (autoMode && !battleEnded && !rtActive) {
+    // 멈춘 락 강제 해제 후 시작
+    playerAttackLock = false;
+    try { $('atk-btn').disabled = false; } catch (e) {}
+    playerAttack();
+  }
+}
+
+function clearBattleOverlays() {
+  try {
+    const p = $('ability-popup');
+    if (p) p.classList.remove('active');
+    const fx = $('fx-overlay');
+    if (fx) { fx.classList.remove('active'); fx.innerHTML = ''; }
+    const app = $('app');
+    if (app) app.classList.remove('fx-screen-shake');
+    const bp = $('badge-popup');
+    if (bp) bp.style.display = 'none';
+  } catch (e) {}
+}
+
+function restartGame() {
+  try { rtLeave(true); } catch (e) {}
+  battleEnded = false;
+  playerAttackLock = false;
+  challengeMode = false;
+  challengeEnemyData = null;
+  rtActive = false;
+  clearBattleOverlays();
+  try { location.reload(); } catch (e) {
+    showScreen('select-screen');
+  }
+}
+function goMainMenu() {
+  try { rtLeave(true); } catch (e) {}
+  battleEnded = false;
+  playerAttackLock = false;
+  challengeMode = false;
+  rtActive = false;
+  clearBattleOverlays();
+  document.querySelectorAll('.screen').forEach(s => { s.classList.remove('active'); s.style.display = 'none'; });
+  const sel = $('select-screen');
+  if (sel) { sel.classList.add('active'); sel.style.display = 'flex'; }
+  updateRecordSummary();
+}
+function forceExitBattle() {
+  if (!confirm('전투를 강제 종료할까요?')) return;
+  try {
+    if (rtActive) rtAfterMyTurn(true, false, '강제 종료');
+  } catch (e) {}
+  battleEnded = false; // endBattle이 다시 돌게
+  endBattle(false, '강제 종료');
+  try { rtLeave(true); } catch (e) {}
+}
+
+function endBattle(win, reason) {
+  // 이미 끝났어도 결과 화면만 다시 보장
+  const already = battleEnded;
+  battleEnded = true;
+  playerAttackLock = false;
+  autoMode = false;
+  if (reason) defeatReason = reason;
+
+  try {
+    const atkB = $('atk-btn');
+    if (atkB) { atkB.style.display = 'none'; atkB.disabled = true; }
+    const autoB = $('auto-btn');
+    if (autoB) { autoB.style.display = 'none'; autoB.textContent = '자동 전투'; }
+    const surB = $('surrender-btn');
+    if (surB) surB.style.display = 'none';
+  } catch (e) {}
+
+  try {
+    if (maxHp > 0) battleFlags.minHpRatio = Math.min(battleFlags.minHpRatio, Math.max(0, hp) / maxHp);
+  } catch (e) {}
+
+  const rivalNick = (challengeEnemyData && challengeEnemyData.nick)
+    || rtOppNick
+    || (enemy && enemy.nick)
+    || '';
+  const isDuel = !!(challengeMode || (enemy && enemy.isChallenge) || rtActive || rtRoomId);
+
+  if (!already) {
+    try { evaluateBadges(win, defeatReason || reason || ''); } catch (e) { console.warn(e); }
+  }
+
+  challengeMode = false;
+  challengeEnemyData = null;
+  pendingChallenge = null;
+  rtActive = false;
+  rtMyTurn = false;
+  // 결투 종료 후 다음 판 위해 강화 락 해제 (방 연결은 유지 가능)
+  rtMyReady = false;
+  rtOppReady = false;
+  rtOppBuild = null;
+  rtBuildLocked = false;
+  rtEnhanceStarted = false;
+  try {
+    const rb = $('rt-ready-btn');
+    if (rb) { rb.textContent = '준비 완료'; rb.disabled = false; }
+  } catch (e) {}
+
+  clearBattleOverlays();
+
+  const title = win ? (isDuel ? '결투 승리!' : '승리!') : (isDuel ? '결투 패배...' : '패배...');
+  let desc = '';
+  if (win) {
+    if (isDuel) {
+      desc = (rivalNick ? rivalNick + ' 님을 이겼습니다!' : '결투 승리!') + '\n+100 LR (보유 ' + (saveData.lr || 0) + ')';
+    } else if (defeatReason) {
+      desc = '승리 원인: ' + defeatReason + '\n(+' + level + ' 강화 · 연승 ' + saveData.streak + ')';
+    } else {
+      desc = '+' + level + ' 강화로 적을 쓰러뜨렸다!\n연승 ' + saveData.streak;
+    }
+  } else {
+    if (isDuel) {
+      desc = (rivalNick ? rivalNick + ' 님에게 패배' : '결투 패배') + (defeatReason ? ('\n' + defeatReason) : '');
+    } else if (defeatReason) {
+      desc = '패배 원인: ' + defeatReason;
+    } else {
+      desc = '아쉽지만 다음엔 더 강하게 강화해보자!';
+    }
+  }
+
+  const paint = () => {
+    try {
+      clearBattleOverlays();
+      // 모든 화면 끄기
+      document.querySelectorAll('.screen').forEach(s => {
+        s.classList.remove('active');
+        s.style.display = 'none';
+      });
+      const rs = $('result-screen');
+      if (rs) {
+        rs.classList.add('active');
+        rs.style.display = 'flex';
+        rs.style.zIndex = '9999';
+        rs.style.position = 'relative';
+      }
+      const rt = $('result-title');
+      if (rt) {
+        rt.textContent = title;
+        rt.className = 'result-title ' + (win ? 'win' : 'lose');
+      }
+      const rd = $('result-desc');
+      if (rd) rd.textContent = desc;
+      const nb = $('new-badges');
+      if (nb) {
+        nb.innerHTML = '';
+        if (win && pendingNewBadges && pendingNewBadges.length) {
+          nb.innerHTML = pendingNewBadges.map(b =>
+            '<div style="margin:4px 0; color:#ffd700;">🏅 ' + b.icon + ' ' + b.name + '</div>'
+          ).join('');
+        }
+      }
+    } catch (e) {
+      console.warn('paint result', e);
+      try {
+        const rs = $('result-screen');
+        if (rs) { rs.style.display = 'flex'; rs.classList.add('active'); }
+      } catch (e2) {}
+    }
+  };
+
+  paint();
+  setTimeout(paint, 30);
+  setTimeout(paint, 200);
+  setTimeout(paint, 600);
+}
+
+function rivalWasDuel() {
+  return !!(enemy && enemy.isChallenge);
+}
+
+// 시작 시 세이브 로드
+loadSave();
+showAuthTab('login');
+(async function bootAuth() {
+  let ok = false;
+  if (useCloud) {
+    ok = await restoreCloudSession();
+  } else {
+    ok = isLoggedIn();
+  }
+  if (ok) {
+    showScreen('select-screen');
+  } else {
+    showScreen('auth-screen');
+    if (window.__legacySave) {
+      const am = $('auth-msg');
+      if (am) am.textContent = '이전 기록이 있습니다. 회원가입 시 가져올 수 있습니다.';
+    }
+  }
+})();
+
+</script>
+</body>
+</html>
