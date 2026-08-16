@@ -285,17 +285,19 @@
       <button class="btn" id="auth-tab-login" style="margin:0; flex:1; padding:10px;" onclick="showAuthTab('login')">로그인</button>
       <button class="btn btn-gold" id="auth-tab-reg" style="margin:0; flex:1; padding:10px;" onclick="showAuthTab('register')">회원가입</button>
     </div>
-    <input id="auth-email" type="email" placeholder="이메일 (클라우드 계정)"
-      style="width:100%; box-sizing:border-box; padding:12px; border-radius:10px; border:2px solid #8e2de2; background:#1a1a2e; color:#fff; margin-bottom:8px;" />
     <input id="auth-nick" type="text" maxlength="12" placeholder="닉네임 (최대 12자)"
       style="width:100%; box-sizing:border-box; padding:12px; border-radius:10px; border:2px solid #8e2de2; background:#1a1a2e; color:#fff; margin-bottom:8px;" />
     <input id="auth-pass" type="password" maxlength="32" placeholder="비밀번호 (4자 이상)"
       style="width:100%; box-sizing:border-box; padding:12px; border-radius:10px; border:2px solid #8e2de2; background:#1a1a2e; color:#fff; margin-bottom:8px;" />
     <input id="auth-pass2" type="password" maxlength="32" placeholder="비밀번호 확인 (가입 시)"
       style="width:100%; box-sizing:border-box; padding:12px; border-radius:10px; border:2px solid #8e2de2; background:#1a1a2e; color:#fff; margin-bottom:8px; display:none;" />
+    <label style="display:flex; align-items:center; gap:8px; margin:8px 0; font-size:0.9rem; opacity:0.9;">
+      <input type="checkbox" id="auth-auto" checked style="width:18px; height:18px;" />
+      자동 로그인 (다음에 바로 접속)
+    </label>
     <p id="auth-msg" style="text-align:center; color:#ff9a9a; font-size:0.85rem; min-height:1.2em;"></p>
     <button class="btn btn-gold" id="auth-submit" style="margin-top:8px;" onclick="submitAuth()">로그인</button>
-    <p id="auth-mode-hint" style="text-align:center; opacity:0.55; font-size:0.75rem; margin-top:12px;">Supabase 설정 후 클라우드 계정 사용</p>
+    <p id="auth-mode-hint" style="text-align:center; opacity:0.55; font-size:0.75rem; margin-top:12px;">닉네임 + 비밀번호만 입력</p>
   </div>
 
   <!-- 1. 메인 -->
@@ -1016,9 +1018,32 @@ function loadSave() {
   const hint = $('auth-mode-hint');
   if (hint) {
     hint.textContent = useCloud
-      ? '클라우드 계정 모드 (이메일 로그인)'
-      : '로컬 모드 — Supabase URL/키를 넣으면 클라우드 사용';
+      ? '닉네임 + 비밀번호 (자동 로그인 지원)'
+      : '닉네임 + 비밀번호 (이 기기 저장)';
   }
+  // 마지막 닉 자동 채우기
+  try {
+    const last = localStorage.getItem('sword_mage_last_nick');
+    if (last && $('auth-nick') && !$('auth-nick').value) $('auth-nick').value = last;
+  } catch (e) {}
+}
+function nickToEmail(nick) {
+  // 이메일은 내부용 — 유저는 입력 안 함
+  const k = nickKey(nick).replace(/[^a-z0-9_]/gi, '') || 'user';
+  return k + '@lr.local';
+}
+function wantAutoLogin() {
+  const el = $('auth-auto');
+  return !el || !!el.checked;
+}
+function setAutoLoginFlag(on) {
+  try {
+    if (on) localStorage.setItem('sword_mage_auto_login', '1');
+    else localStorage.removeItem('sword_mage_auto_login');
+  } catch (e) {}
+}
+function isAutoLoginEnabled() {
+  try { return localStorage.getItem('sword_mage_auto_login') === '1'; } catch (e) { return false; }
 }
 async function restoreCloudSession() {
   if (!useCloud || !sbClient) return false;
@@ -1079,21 +1104,22 @@ function showAuthTab(mode) {
   const msg = $('auth-msg');
   if (msg) msg.textContent = '';
   const emailEl = $('auth-email');
-  if (emailEl) emailEl.style.display = useCloud ? 'block' : 'none';
+  if (emailEl) emailEl.style.display = 'none';
+  const autoEl = $('auth-auto');
+  if (autoEl) autoEl.checked = isAutoLoginEnabled() || autoEl.checked;
 }
 async function submitAuth() {
   const nick = (($('auth-nick') && $('auth-nick').value) || '').trim().replace(/\s+/g, ' ').slice(0, 12);
   const pass = (($('auth-pass') && $('auth-pass').value) || '');
   const pass2 = (($('auth-pass2') && $('auth-pass2').value) || '');
-  const email = (($('auth-email') && $('auth-email').value) || '').trim();
+  const email = nickToEmail(nick);
   const msg = $('auth-msg');
   const setMsg = (t) => { if (msg) msg.textContent = t; };
   if (!nick || nick.length < 1) { setMsg('닉네임을 입력하세요.'); return; }
   if (pass.length < 4) { setMsg('비밀번호는 4자 이상이어야 합니다.'); return; }
 
-  // ===== 클라우드 (Supabase) =====
+  // ===== 클라우드 (Supabase) — 이메일은 내부 자동 생성 =====
   if (useCloud && sbClient) {
-    if (!email || !email.includes('@')) { setMsg('이메일을 입력하세요.'); return; }
     setMsg('처리 중...');
     try {
       if (authMode === 'register') {
@@ -1105,7 +1131,7 @@ async function submitAuth() {
           options: { data: { nick } }
         });
         if (error) { setMsg(error.message || '가입 실패'); return; }
-        if (!data.user) { setMsg('가입 실패 (메일 확인이 필요할 수 있음)'); return; }
+        if (!data.user) { setMsg('가입 실패'); return; }
         sbUserId = data.user.id;
         currentUserKey = 'cloud:' + sbUserId;
         saveData = defaultSaveData(nick);
@@ -1115,10 +1141,12 @@ async function submitAuth() {
         }
         normalizeMissions();
         await cloudSaveProfile();
+        try { localStorage.setItem('sword_mage_last_nick', nick); } catch (e) {}
+        setAutoLoginFlag(wantAutoLogin());
         setMsg('');
         showScreen('select-screen');
         updateRecordSummary();
-        alert('가입 완료!\n이메일 확인이 켜져 있으면 메일함을 확인하세요.\n닉네임: ' + nick);
+        alert('가입 완료!\n닉네임: ' + nick + '\n(이메일은 입력할 필요 없음)');
         return;
       }
       // login
@@ -1135,6 +1163,8 @@ async function submitAuth() {
         await cloudSaveProfile();
       }
       normalizeMissions();
+      try { localStorage.setItem('sword_mage_last_nick', nick); } catch (e) {}
+      setAutoLoginFlag(wantAutoLogin());
       setMsg('');
       showScreen('select-screen');
       updateRecordSummary();
@@ -1172,6 +1202,8 @@ async function submitAuth() {
     saveData = data;
     normalizeMissions();
     try { localStorage.setItem(SESSION_KEY, key); } catch (e) {}
+    try { localStorage.setItem('sword_mage_last_nick', nick); } catch (e) {}
+    setAutoLoginFlag(wantAutoLogin());
     persistSave();
     setMsg('');
     showScreen('select-screen');
@@ -1190,6 +1222,8 @@ async function submitAuth() {
   if (!acc.tag) { acc.tag = saveData.tag; persistAccountsDB(); }
   normalizeMissions();
   try { localStorage.setItem(SESSION_KEY, key); } catch (e) {}
+  try { localStorage.setItem('sword_mage_last_nick', nick); } catch (e) {}
+  setAutoLoginFlag(wantAutoLogin());
   persistSave();
   setMsg('');
   showScreen('select-screen');
@@ -1203,6 +1237,7 @@ async function logoutAccount() {
   sbUserId = null;
   currentUserKey = null;
   saveData = defaultSaveData('');
+  setAutoLoginFlag(false);
   try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
   showAuthTab('login');
   showScreen('auth-screen');
@@ -4717,11 +4752,16 @@ loadSave();
 showAuthTab('login');
 (async function bootAuth() {
   let ok = false;
-  if (useCloud) {
-    ok = await restoreCloudSession();
-  } else {
-    ok = isLoggedIn();
+  // 자동 로그인이 켜져 있을 때만 세션 복구
+  if (isAutoLoginEnabled() || true) {
+    // 기본: 세션 있으면 바로 입장 (편의를 위해 세션 우선)
+    if (useCloud) {
+      ok = await restoreCloudSession();
+    } else {
+      ok = isLoggedIn();
+    }
   }
+  // 자동 로그인 끄고 로그아웃한 경우 세션 없음 → 로그인 화면
   if (ok) {
     showScreen('select-screen');
   } else {
