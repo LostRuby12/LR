@@ -4,7 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>검 vs 지팡이 강화 대결</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -287,7 +289,7 @@
     </div>
     <input id="auth-nick" type="text" maxlength="12" placeholder="닉네임 (최대 12자)"
       style="width:100%; box-sizing:border-box; padding:12px; border-radius:10px; border:2px solid #8e2de2; background:#1a1a2e; color:#fff; margin-bottom:8px;" />
-    <input id="auth-pass" type="password" maxlength="32" placeholder="비밀번호 (4자 이상)"
+    <input id="auth-pass" type="password" maxlength="32" placeholder="비밀번호 (6자 이상)"
       style="width:100%; box-sizing:border-box; padding:12px; border-radius:10px; border:2px solid #8e2de2; background:#1a1a2e; color:#fff; margin-bottom:8px;" />
     <input id="auth-pass2" type="password" maxlength="32" placeholder="비밀번호 확인 (가입 시)"
       style="width:100%; box-sizing:border-box; padding:12px; border-radius:10px; border:2px solid #8e2de2; background:#1a1a2e; color:#fff; margin-bottom:8px; display:none;" />
@@ -840,53 +842,71 @@ const STORAGE_KEY = 'sword_mage_badges_v1';
 const ACCOUNTS_KEY = 'sword_mage_accounts_v1';
 const SESSION_KEY = 'sword_mage_session_v1';
 
-// ===== Supabase 설정 =====
-const SUPABASE_URL = 'https://pzhrlwscrjtovhtgrmzg.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_pFMWVGhP0DEa83BWUlP1GQ_1byX-EJf';
-let sbClient = null;
-let sbUserId = null;
+// ===== Firebase 설정 =====
+const FIREBASE_CONFIG = {
+  apiKey: 'AIzaSyDfzGyYq6XoGhOLnZzhfDyHjiHi-gXD7Qk',
+  authDomain: 'god-ruin.firebaseapp.com',
+  projectId: 'god-ruin',
+  storageBucket: 'god-ruin.firebasestorage.app',
+  messagingSenderId: '7383681864',
+  appId: '1:7383681864:web:6958a8f11cb230149e817d',
+  measurementId: 'G-JWRDTHG5VC'
+};
+let fbAuth = null;
+let fbDb = null;
+let fbUserId = null;
 let useCloud = false;
 
-function sbReady() {
-  return !!(SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase && typeof window.supabase.createClient === 'function');
+function fbReady() {
+  return !!(FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.projectId && window.firebase);
 }
-function initSupabase() {
+function initFirebase() {
   useCloud = false;
-  sbClient = null;
-  if (!sbReady()) return false;
+  fbAuth = null;
+  fbDb = null;
+  if (!fbReady()) return false;
   try {
-    sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+    fbAuth = firebase.auth();
+    fbDb = firebase.firestore();
     useCloud = true;
     return true;
   } catch (e) {
-    console.warn('Supabase init fail', e);
+    console.warn('Firebase init fail', e);
     useCloud = false;
     return false;
   }
 }
 async function cloudLoadProfile(userId) {
-  const { data, error } = await sbClient.from('profiles').select('*').eq('id', userId).maybeSingle();
-  if (error) throw error;
-  return data;
+  const snap = await fbDb.collection('profiles').doc(userId).get();
+  if (!snap.exists) return null;
+  return snap.data();
 }
 async function cloudSaveProfile() {
-  if (!useCloud || !sbClient || !sbUserId) return;
+  if (!useCloud || !fbDb || !fbUserId) return;
   normalizeMissions();
   const payload = {
-    id: sbUserId,
     nick: saveData.nick || '',
     lr: saveData.lr || 0,
     lp: saveData.lp || 0,
     data: saveData,
     updated_at: new Date().toISOString()
   };
-  const { error } = await sbClient.from('profiles').upsert(payload, { onConflict: 'id' });
-  if (error) console.warn('cloud save', error);
+  try {
+    await fbDb.collection('profiles').doc(fbUserId).set(payload, { merge: true });
+  } catch (e) {
+    console.warn('cloud save', e);
+  }
 }
 async function cloudNickTaken(nick) {
-  const { data, error } = await sbClient.from('profiles').select('id').eq('nick', nick).maybeSingle();
-  if (error) return false;
-  return !!(data && data.id && data.id !== sbUserId);
+  try {
+    const snap = await fbDb.collection('nicks').doc(nickKey(nick)).get();
+    if (!snap.exists) return false;
+    const uid = snap.data() && snap.data().uid;
+    return !!(uid && uid !== fbUserId);
+  } catch (e) {
+    return false;
+  }
 }
 
 function defaultSaveData(nick) {
@@ -990,7 +1010,7 @@ function missionToday() {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
 function loadSave() {
-  initSupabase();
+  initFirebase();
   loadAccountsDB();
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -1028,9 +1048,23 @@ function loadSave() {
   } catch (e) {}
 }
 function nickToEmail(nick) {
-  // 이메일은 내부용 — 유저는 입력 안 함
-  const k = nickKey(nick).replace(/[^a-z0-9_]/gi, '') || 'user';
-  return k + '@lr.local';
+  // 사용자는 이메일을 입력하지 않음. 닉네임을 내부 Firebase 로그인 주소로만 변환.
+  const str = nickKey(nick);
+  const bytes = new TextEncoder().encode(str);
+  const alphabet = 'abcdefghijklmnopqrstuvwxyz234567';
+  let bits = 0;
+  let value = 0;
+  let output = '';
+  for (const byte of bytes) {
+    value = (value << 8) | byte;
+    bits += 8;
+    while (bits >= 5) {
+      output += alphabet[(value >>> (bits - 5)) & 31];
+      bits -= 5;
+    }
+  }
+  if (bits > 0) output += alphabet[(value << (5 - bits)) & 31];
+  return 'u' + output + '@lrplayer.com';
 }
 function wantAutoLogin() {
   const el = $('auth-auto');
@@ -1046,19 +1080,23 @@ function isAutoLoginEnabled() {
   try { return localStorage.getItem('sword_mage_auto_login') === '1'; } catch (e) { return false; }
 }
 async function restoreCloudSession() {
-  if (!useCloud || !sbClient) return false;
+  if (!useCloud || !fbAuth) return false;
   try {
-    const { data: { session } } = await sbClient.auth.getSession();
-    if (!session || !session.user) return false;
-    sbUserId = session.user.id;
-    currentUserKey = 'cloud:' + sbUserId;
-    let row = await cloudLoadProfile(sbUserId);
+    const user = await new Promise((resolve) => {
+      const unsub = fbAuth.onAuthStateChanged((u) => {
+        unsub();
+        resolve(u);
+      });
+    });
+    if (!user) return false;
+    fbUserId = user.uid;
+    currentUserKey = 'cloud:' + fbUserId;
+    let row = await cloudLoadProfile(fbUserId);
     if (row && row.data) {
       saveData = Object.assign(defaultSaveData(row.nick || ''), row.data);
       saveData.nick = row.nick || saveData.nick;
     } else {
-      const metaNick = (session.user.user_metadata && session.user.user_metadata.nick) || '';
-      saveData = defaultSaveData(metaNick);
+      saveData = defaultSaveData('');
       await cloudSaveProfile();
     }
     normalizeMissions();
@@ -1078,13 +1116,13 @@ function persistSave() {
     persistAccountsDB();
   }
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(saveData)); } catch (e) {}
-  if (useCloud && sbUserId) {
+  if (useCloud && fbUserId) {
     cloudSaveProfile().catch(e => console.warn(e));
   }
   updateRecordSummary();
 }
 function isLoggedIn() {
-  if (useCloud) return !!(sbUserId && currentUserKey);
+  if (useCloud) return !!(fbUserId && currentUserKey);
   return !!(currentUserKey && accountsDB[currentUserKey]);
 }
 function requireLogin() {
@@ -1116,45 +1154,63 @@ async function submitAuth() {
   const msg = $('auth-msg');
   const setMsg = (t) => { if (msg) msg.textContent = t; };
   if (!nick || nick.length < 1) { setMsg('닉네임을 입력하세요.'); return; }
-  if (pass.length < 4) { setMsg('비밀번호는 4자 이상이어야 합니다.'); return; }
+  if (pass.length < 6) { setMsg('비밀번호는 6자 이상이어야 합니다.'); return; }
 
-  // ===== 클라우드 (Supabase) — 이메일은 내부 자동 생성 =====
-  if (useCloud && sbClient) {
+  // ===== 클라우드 (Firebase) — 사용자는 이메일 입력 불필요 =====
+  if (useCloud && fbAuth && fbDb) {
     setMsg('처리 중...');
     try {
       if (authMode === 'register') {
         if (pass !== pass2) { setMsg('비밀번호 확인이 일치하지 않습니다.'); return; }
         if (await cloudNickTaken(nick)) { setMsg('이미 사용 중인 닉네임입니다.'); return; }
-        const { data, error } = await sbClient.auth.signUp({
-          email,
-          password: pass,
-          options: { data: { nick } }
-        });
-        if (error) { setMsg(error.message || '가입 실패'); return; }
-        if (!data.user) { setMsg('가입 실패'); return; }
-        sbUserId = data.user.id;
-        currentUserKey = 'cloud:' + sbUserId;
+        let cred;
+        try {
+          cred = await fbAuth.createUserWithEmailAndPassword(email, pass);
+        } catch (err) {
+          const m = (err && (err.message || err.code) || '') + '';
+          if (/email-already|already-in-use/i.test(m)) setMsg('이미 가입된 닉입니다. 로그인 해보세요.');
+          else if (/network|unavailable|fetch/i.test(m)) setMsg('서버 연결 실패. Firebase 설정을 확인하세요.');
+          else if (/api-key|invalid-api/i.test(m)) setMsg('Firebase API 키가 잘못되었습니다.');
+          else setMsg(m || '가입 실패');
+          return;
+        }
+        const user = cred.user;
+        if (!user) { setMsg('가입 실패'); return; }
+        fbUserId = user.uid;
+        currentUserKey = 'cloud:' + fbUserId;
         saveData = defaultSaveData(nick);
         if (window.__legacySave && confirm('이전 로컬 기록을 이 계정으로 가져올까요?')) {
           saveData = Object.assign(saveData, window.__legacySave);
           saveData.nick = nick;
         }
         normalizeMissions();
+        await fbDb.collection('nicks').doc(nickKey(nick)).set({ uid: fbUserId, nick });
         await cloudSaveProfile();
         try { localStorage.setItem('sword_mage_last_nick', nick); } catch (e) {}
         setAutoLoginFlag(wantAutoLogin());
         setMsg('');
         showScreen('select-screen');
         updateRecordSummary();
-        alert('가입 완료!\n닉네임: ' + nick + '\n(이메일은 입력할 필요 없음)');
+        alert('가입 완료!
+닉네임: ' + nick);
         return;
       }
-      // login
-      const { data, error } = await sbClient.auth.signInWithPassword({ email, password: pass });
-      if (error) { setMsg(error.message || '로그인 실패'); return; }
-      sbUserId = data.user.id;
-      currentUserKey = 'cloud:' + sbUserId;
-      let row = await cloudLoadProfile(sbUserId);
+
+      let cred;
+      try {
+        cred = await fbAuth.signInWithEmailAndPassword(email, pass);
+      } catch (err) {
+        const m = (err && (err.message || err.code) || '') + '';
+        if (/user-not-found|wrong-password|invalid-credential/i.test(m)) setMsg('닉네임 또는 비밀번호가 올바르지 않습니다.');
+        else if (/network|unavailable|fetch/i.test(m)) setMsg('서버 연결 실패.');
+        else setMsg(m || '로그인 실패');
+        return;
+      }
+      const user = cred.user;
+      if (!user) { setMsg('로그인 실패'); return; }
+      fbUserId = user.uid;
+      currentUserKey = 'cloud:' + fbUserId;
+      let row = await cloudLoadProfile(fbUserId);
       if (row && row.data) {
         saveData = Object.assign(defaultSaveData(row.nick || nick), row.data);
         saveData.nick = row.nick || nick;
@@ -1231,10 +1287,10 @@ async function submitAuth() {
 }
 async function logoutAccount() {
   if (!confirm('로그아웃 할까요?')) return;
-  if (useCloud && sbClient) {
-    try { await sbClient.auth.signOut(); } catch (e) {}
+  if (useCloud && fbAuth) {
+    try { await fbAuth.signOut(); } catch (e) {}
   }
-  sbUserId = null;
+  fbUserId = null;
   currentUserKey = null;
   saveData = defaultSaveData('');
   setAutoLoginFlag(false);
