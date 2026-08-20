@@ -10,6 +10,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -340,11 +341,26 @@
       <button class="btn" style="margin:0; min-height:74px; padding:12px 8px; font-size:0.98rem; background:linear-gradient(135deg,#4a5568,#2d3748);" onclick="openCodex()">🏅<br>도감</button>
       <button class="btn" style="margin:0; min-height:74px; padding:12px 8px; font-size:0.92rem; background:linear-gradient(135deg,#11998e,#38ef7d);" onclick="openHelp()">📖<br>효과 · 능력 설명</button>
       <button class="btn" style="margin:0; min-height:74px; padding:12px 8px; font-size:0.98rem; background:linear-gradient(135deg,#667eea,#764ba2);" onclick="openStory()">📜<br>스토리</button>
-      <button class="btn btn-gold" style="grid-column:1 / -1; margin:0; min-height:64px; padding:12px 8px; font-size:1rem;" onclick="openCodeTab()">🎁 코드</button>
+      <button class="btn" style="margin:0; min-height:64px; padding:12px 8px; font-size:0.98rem; background:linear-gradient(135deg,#f7971e,#ffd200); color:#222;" onclick="openAttendanceTab()">📅<br>출석</button>
+      <button class="btn btn-gold" style="margin:0; min-height:64px; padding:12px 8px; font-size:0.98rem;" onclick="openCodeTab()">🎁<br>코드</button>
     </div>
     <div style="flex:1; min-height:70px;"></div>
     <button class="btn btn-danger" style="margin-top:28px;" onclick="logoutAccount()">로그아웃</button>
     <button class="btn" style="margin-top:12px; margin-bottom:8px;" onclick="showScreen('select-screen')">← 메인으로</button>
+  </div>
+
+  <!-- 출석 보상 -->
+  <div id="attendance-screen" class="screen">
+    <h2 style="text-align:center;">📅 출석 보상</h2>
+    <div style="background:rgba(0,0,0,0.3);border:1px solid #5a4a8a;border-radius:14px;padding:18px;margin-top:10px;text-align:center;">
+      <div style="font-size:1.35rem;font-weight:900;color:#ffd700;">매일 +100 LR</div>
+      <div style="font-size:0.88rem;opacity:0.82;margin-top:6px;">7일 연속마다 추가 +100 LP</div>
+    </div>
+    <p id="attendance-info" style="text-align:center;line-height:1.7;margin-top:18px;opacity:0.88;"></p>
+    <p id="attendance-msg" style="text-align:center;min-height:1.4em;margin-top:10px;font-size:0.9rem;"></p>
+    <button class="btn btn-gold" id="attendance-claim-btn" style="margin-top:10px;" onclick="claimAttendanceReward()">오늘 출석 보상 받기</button>
+    <div style="flex:1;min-height:40px;"></div>
+    <button class="btn" onclick="showScreen('etc-screen')">← 기타로</button>
   </div>
 
   <!-- 코드 입력 -->
@@ -376,17 +392,17 @@
   <!-- 보스 선택 -->
   <div id="raid-pick-screen" class="screen">
     <h2 style="text-align:center;">👹 보스전</h2>
-    <p style="text-align:center; opacity:0.85; font-size:0.9rem; margin-bottom:12px;">상대 보스를 선택하세요<br><span style="opacity:0.7;font-size:0.8rem;">(상세 설정은 추후 업데이트)</span></p>
+    <p style="text-align:center; opacity:0.85; font-size:0.9rem; margin-bottom:12px;">상대 보스를 선택하세요<br><span style="opacity:0.7;font-size:0.8rem;">(첫 보스 클리어 시 강화 기회 50회 영구 해금)</span></p>
     <div class="class-cards" style="margin-bottom:12px;">
       <div class="class-card" id="raid-boss-mage" onclick="selectRaidBoss('ancient_mage')">
         <div class="class-icon">🧙</div>
         <div class="class-name">고대 마법사</div>
-        <div class="class-desc">오래전 세계를 주름잡던<br>대마법사. 설정 미정</div>
+        <div class="class-desc">마법사로 도전 시<br>최대 강화 +20</div>
       </div>
       <div class="class-card" id="raid-boss-god" onclick="selectRaidBoss('fallen_god')">
         <div class="class-icon">🌑</div>
         <div class="class-name">몰락한 신</div>
-        <div class="class-desc">추락한 신의 잔해.<br>설정 미정</div>
+        <div class="class-desc">검사로 도전 시<br>최대 강화 +20</div>
       </div>
     </div>
     <p id="raid-pick-label" style="text-align:center; color:#ffd700; min-height:1.2em; margin-bottom:8px;"></p>
@@ -709,7 +725,7 @@ function isMagicClass(cls) {
 
 // ========== 상태 ==========
 let playerClass = null; // sword | mage | assassin | priest | archer
-let level = 0;          // 0~10
+let level = 0;          // 일반 0~10 · 특정 보스전 0~20
 let hp = 0;
 let maxHp = 0;
 let chances = 25;
@@ -863,6 +879,7 @@ const FIREBASE_CONFIG = {
 };
 let fbAuth = null;
 let fbDb = null;
+let fbFunctions = null;
 let fbUserId = null;
 let useCloud = false;
 
@@ -878,6 +895,7 @@ function initFirebase() {
     if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
     fbAuth = firebase.auth();
     fbDb = firebase.firestore();
+    fbFunctions = firebase.app().functions('asia-northeast3');
     useCloud = true;
     return true;
   } catch (e) {
@@ -913,6 +931,8 @@ function defaultSaveData(nick) {
     badges: {}, wins: 0, losses: 0, streak: 0, winSword10: false, winMage10: false,
     nick: nick || '', tag: '', lr: 0, lp: 0, rankBoard: [],
     redeemedCodes: {},
+    attendance: { lastDate: '', streak: 0, total: 0 },
+    raidChance50Unlocked: false,
     shop: { goldNick: false, assassin: false, priest: false, archer: false },
     missions: {
       day: '',
@@ -1538,16 +1558,32 @@ function openEtcMenu() {
   showScreen('etc-screen');
 }
 
-const REDEEM_CODES = Object.freeze({
-  godruin: { lp: 7777, label: '7,777 LP' },
-  lostruby: { lr: 777, label: '777 LR' }
-});
-
 function setCodeMessage(text, ok = false) {
   const el = $('redeem-code-msg');
   if (!el) return;
   el.textContent = text || '';
   el.style.color = ok ? '#75ffad' : '#ff9a9a';
+}
+
+async function reloadRewardData() {
+  if (!useCloud || !fbDb || !fbUserId) return;
+  const profile = await cloudLoadProfile(fbUserId);
+  if (!profile) return;
+  saveData = Object.assign(defaultSaveData(profile.nick || ''), profile.data || {});
+  saveData.lr = Number(profile.lr !== undefined ? profile.lr : saveData.lr) || 0;
+  saveData.lp = Number(profile.lp !== undefined ? profile.lp : saveData.lp) || 0;
+  ensureShopSave();
+  normalizeMissions();
+  updateRecordSummary();
+}
+
+function rewardError(e, fallback) {
+  const code = String((e && e.code) || '');
+  const msg = String((e && e.message) || '');
+  if (code.includes('already-exists')) return msg || '이미 사용했습니다.';
+  if (code.includes('not-found')) return msg || '존재하지 않는 코드입니다.';
+  if (code.includes('unauthenticated')) return '로그인이 필요합니다.';
+  return msg || fallback;
 }
 
 function openCodeTab() {
@@ -1563,70 +1599,66 @@ async function redeemCode() {
   const input = $('redeem-code-input');
   const btn = $('redeem-code-btn');
   const raw = ((input && input.value) || '').trim();
-  const key = raw.toLowerCase();
-  if (!key) {
-    setCodeMessage('코드를 입력하세요.');
-    return;
-  }
-
-  const reward = REDEEM_CODES[key];
-  if (!reward) {
-    setCodeMessage('존재하지 않는 코드입니다.');
-    return;
-  }
-
+  if (!raw) { setCodeMessage('코드를 입력하세요.'); return; }
+  if (!fbFunctions) { setCodeMessage('보상 서버가 아직 준비되지 않았습니다.'); return; }
   if (btn) btn.disabled = true;
   setCodeMessage('코드 확인 중...');
-
   try {
-    let updatedData = null;
-    const now = new Date().toISOString();
-
-    if (useCloud && fbDb && fbUserId) {
-      const ref = fbDb.collection('profiles').doc(fbUserId);
-      updatedData = await fbDb.runTransaction(async (tx) => {
-        const snap = await tx.get(ref);
-        const profile = snap.exists ? (snap.data() || {}) : {};
-        const base = Object.assign(defaultSaveData(profile.nick || saveData.nick || ''), profile.data || saveData || {});
-        base.redeemedCodes = Object.assign({}, base.redeemedCodes || {});
-        if (base.redeemedCodes[key]) throw new Error('CODE_ALREADY_USED');
-
-        base.redeemedCodes[key] = now;
-        base.lr = Math.max(0, Number(base.lr) || 0) + (Number(reward.lr) || 0);
-        base.lp = Math.max(0, Number(base.lp) || 0) + (Number(reward.lp) || 0);
-
-        tx.set(ref, {
-          nick: base.nick || saveData.nick || '',
-          lr: base.lr,
-          lp: base.lp,
-          data: base,
-          updated_at: now
-        }, { merge: true });
-        return base;
-      });
-      saveData = Object.assign(defaultSaveData(updatedData.nick || ''), updatedData);
-    } else {
-      saveData.redeemedCodes = Object.assign({}, saveData.redeemedCodes || {});
-      if (saveData.redeemedCodes[key]) throw new Error('CODE_ALREADY_USED');
-      saveData.redeemedCodes[key] = now;
-      saveData.lr = Math.max(0, Number(saveData.lr) || 0) + (Number(reward.lr) || 0);
-      saveData.lp = Math.max(0, Number(saveData.lp) || 0) + (Number(reward.lp) || 0);
-    }
-
-    persistSave();
-    try { upsertRankBoard(saveData.nick || '나', saveData.lr || 0); } catch (e) {}
-    updateRecordSummary();
-    setCodeMessage(`코드 사용 완료! +${reward.label}`, true);
+    const res = await fbFunctions.httpsCallable('redeemCode')({ code: raw });
+    await reloadRewardData();
+    setCodeMessage(`코드 사용 완료! +${(res.data && res.data.label) || '보상 지급'}`, true);
     if (input) input.value = '';
   } catch (e) {
-    if (e && e.message === 'CODE_ALREADY_USED') {
-      setCodeMessage('이미 사용한 코드입니다.');
-    } else {
-      console.warn('redeemCode failed', e);
-      setCodeMessage('코드 지급 중 오류가 발생했습니다. 잠시 후 다시 시도하세요.');
-    }
+    console.warn(e);
+    setCodeMessage(rewardError(e, '코드 사용 중 오류가 발생했습니다.'));
   } finally {
     if (btn) btn.disabled = false;
+  }
+}
+
+function kstTodayClient() {
+  try {
+    const ps = new Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
+    const m = Object.fromEntries(ps.map(x => [x.type, x.value]));
+    return `${m.year}-${m.month}-${m.day}`;
+  } catch (e) { return ''; }
+}
+
+function renderAttendanceInfo() {
+  const info = $('attendance-info');
+  const btn = $('attendance-claim-btn');
+  if (!info) return;
+  const a = saveData.attendance || { lastDate:'', streak:0, total:0 };
+  const done = a.lastDate === kstTodayClient();
+  info.innerHTML = `연속 출석 <b style="color:#ffd700;">${Number(a.streak)||0}일</b><br>누적 출석 ${Number(a.total)||0}일${done ? '<br><span style="color:#75ffad;">오늘 출석 완료 ✅</span>' : ''}`;
+  if (btn) { btn.disabled = done; btn.textContent = done ? '오늘 출석 완료' : '오늘 출석 보상 받기'; }
+}
+
+function openAttendanceTab() {
+  if (!requireLogin()) return;
+  const msg = $('attendance-msg');
+  if (msg) msg.textContent = '';
+  renderAttendanceInfo();
+  showScreen('attendance-screen');
+}
+
+async function claimAttendanceReward() {
+  if (!requireLogin()) return;
+  const btn = $('attendance-claim-btn');
+  const msg = $('attendance-msg');
+  if (!fbFunctions) { if (msg) { msg.style.color='#ff9a9a'; msg.textContent='보상 서버가 아직 준비되지 않았습니다.'; } return; }
+  if (btn) btn.disabled = true;
+  if (msg) { msg.style.color='#c9b6ff'; msg.textContent='출석 확인 중...'; }
+  try {
+    const res = await fbFunctions.httpsCallable('claimAttendance')({});
+    await reloadRewardData();
+    renderAttendanceInfo();
+    const d = res.data || {};
+    const bonus = Number(d.lpReward) > 0 ? ` + ${Number(d.lpReward).toLocaleString()} LP` : '';
+    if (msg) { msg.style.color='#75ffad'; msg.textContent=`출석 완료! +${Number(d.lrReward||100).toLocaleString()} LR${bonus}`; }
+  } catch (e) {
+    if (msg) { msg.style.color='#ff9a9a'; msg.textContent=rewardError(e, '출석 처리 중 오류가 발생했습니다.'); }
+    renderAttendanceInfo();
   }
 }
 
@@ -1968,9 +2000,15 @@ function evaluateBadges(win, reason) {
   }
   // 보스전 (고대 마법사 / 몰락한 신)
   if (gameMode === 'raid') {
-    const mg = grantMission('raid');
-    if (mg) pendingNewBadges.push({ icon: '📋', name: '미션', desc: `보스전 클리어 +${mg} LR` });
-    persistSave();
+    if (win) {
+      const mg = grantMission('raid');
+      if (mg) pendingNewBadges.push({ icon: '📋', name: '미션', desc: `보스전 클리어 +${mg} LR` });
+      if (!saveData.raidChance50Unlocked) {
+        saveData.raidChance50Unlocked = true;
+        pendingNewBadges.push({ icon: '🔓', name: '보스 정복 보상', desc: '강화 기회 최대 50회 영구 해금' });
+      }
+      persistSave();
+    }
     return;
   }
   // 일반 강화 대결
@@ -2039,7 +2077,14 @@ function getWeapon(cls, lv, awakened, awakenType) {
   const list = getWeaponList(cls);
   const defaults = { sword: '기본 검', mage: '기본 지팡이', assassin: '기본 단검', priest: '기본 성물', archer: '기본 활' };
   if (lv <= 0) return { name: defaults[cls] || '기본 무기', atk: 0, desc: '' };
-  return list[Math.min(lv - 1, 9)];
+  const weapon = Object.assign({}, list[Math.min(lv - 1, 9)]);
+  if (lv > 10 && (cls === 'sword' || cls === 'mage')) {
+    const extra = Math.max(0, lv - 10);
+    weapon.atk = Math.max(0, Math.round((Number(weapon.atk) || 0) * (1 + extra * 0.10)));
+    weapon.name = `${weapon.name} · 초월 +${lv}`;
+    weapon.desc = `초월 강화: +10 이후 단계당 공격력 +10% · ${weapon.desc || '기본 능력 유지'}`;
+  }
+  return weapon;
 }
 
 function hasSaintShieldWeapon(isPlayer) {
@@ -2230,9 +2275,9 @@ function updateStatusIcons() {
 }
 
 function getSuccessRate(lv) {
-  // 0→1:100 ... 6→7:45, 7→8:30, 8→9:25, 9→10:12
-  const rates = [100, 98, 80, 75, 65, 50, 45, 30, 25, 15];
-  return rates[Math.min(lv, 9)];
+  // +1~+10 기존 확률, +11~+20은 보스전 전용 초월 강화 확률
+  const rates = [100, 98, 80, 75, 65, 50, 45, 30, 25, 15, 12, 10, 9, 8, 7, 6, 5, 4, 3, 2];
+  return rates[Math.min(Math.max(0, lv), rates.length - 1)];
 }
 
 
@@ -3138,7 +3183,7 @@ function selectClass(cls) {
 function startEnhance() {
   if (!playerClass) return;
   level = 0;
-  chances = 25 + (shopBuff.extraChances || 0);
+  chances = (saveData.raidChance50Unlocked ? 50 : 25) + (shopBuff.extraChances || 0);
   if (shopBuff.extraChances) {
     shopBuff.extraChances = 0;
   }
@@ -3171,14 +3216,21 @@ function updateEnhanceUI() {
   }
 }
 
+function getEnhanceMaxLevel() {
+  if (pendingRaidBoss && selectedRaidBossId === 'fallen_god' && playerClass === 'sword') return 20;
+  if (pendingRaidBoss && selectedRaidBossId === 'ancient_mage' && playerClass === 'mage') return 20;
+  return 10;
+}
+
 // ========== 강화 ==========
 async function doEnhance(type) {
   if (rtBuildLocked || rtMyReady) {
     alert('결투 빌드가 확정되어 더 이상 강화할 수 없습니다!');
     return;
   }
-  if (level >= 10) {
-    alert('이미 최고 강화(+10)입니다!');
+  const maxEnhanceLevel = getEnhanceMaxLevel();
+  if (level >= maxEnhanceLevel) {
+    alert(`이미 최고 강화(+${maxEnhanceLevel})입니다!`);
     return;
   }
   if (chances <= 0) {
@@ -3213,7 +3265,7 @@ async function doEnhance(type) {
   $('result-text').textContent = '';
 
   for (let i = 0; i < attempts; i++) {
-    if (level >= 10) break;
+    if (level >= maxEnhanceLevel) break;
 
     await animateSlot();
 
@@ -3221,7 +3273,7 @@ async function doEnhance(type) {
     const success = (rand() * 100) < rate;
 
     if (success) {
-      level = Math.min(10, level + 1);
+      level = Math.min(maxEnhanceLevel, level + 1);
       const base = getBaseHp(playerClass);
       maxHp = base + level * 50;
       hp = maxHp;
