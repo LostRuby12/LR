@@ -1,13 +1,18 @@
 name: Switch to free reward system
 
+# migration PR trigger
 on:
   push:
     paths:
       - 'tools/switch_to_free_rewards.py'
+      - 'tools/switch_to_free_rewards_v2.py'
+      - 'tools/switch_to_free_rewards_v3.py'
       - '.github/workflows/switch-to-free-rewards.yml'
   pull_request:
     paths:
       - 'tools/switch_to_free_rewards.py'
+      - 'tools/switch_to_free_rewards_v2.py'
+      - 'tools/switch_to_free_rewards_v3.py'
       - '.github/workflows/switch-to-free-rewards.yml'
 
 permissions:
@@ -24,7 +29,7 @@ jobs:
         with:
           node-version: '20'
       - name: Apply patch
-        run: python tools/switch_to_free_rewards.py
+        run: python tools/switch_to_free_rewards_v3.py
       - name: Check inline JavaScript syntax
         run: |
           python - <<'PY'
