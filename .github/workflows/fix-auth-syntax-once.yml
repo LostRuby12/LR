@@ -1,0 +1,46 @@
+name: Fix auth syntax once
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-auth-syntax-once.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fix broken signup alert and syntax-check inline JavaScript
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+
+          broken = "alert('가입 완료!\n닉네임: ' + nick);"
+          fixed = "alert('가입 완료!\\n닉네임: ' + nick);"
+          if broken not in s:
+              raise SystemExit('Broken signup alert pattern not found')
+          s = s.replace(broken, fixed, 1)
+          p.write_text(s, encoding='utf-8')
+
+          blocks = re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>', s, flags=re.S|re.I)
+          inline = [b for b in blocks if b.strip()]
+          Path('/tmp/inline.js').write_text('\n'.join(inline), encoding='utf-8')
+          PY
+          node --check /tmp/inline.js
+      - name: Commit fix
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git commit -m 'Fix Firebase auth JavaScript syntax'
+          git push
