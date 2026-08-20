@@ -1,0 +1,23 @@
+name: Apply cache headers once
+
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-cache-headers-once.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 tools/add_cache_headers.py
+      - run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git commit -m 'Add cache prevention meta headers'
+          git push
