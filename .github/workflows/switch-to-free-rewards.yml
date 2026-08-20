@@ -1,5 +1,6 @@
 name: Switch to free reward system
 
+# trigger after workflow registration
 on:
   push:
     paths:
