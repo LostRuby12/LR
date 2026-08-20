@@ -1,0 +1,49 @@
+name: Adjust transcend enhancement rates
+
+on:
+  pull_request:
+    paths:
+      - 'tools/adjust-enhance-rates.py'
+      - '.github/workflows/adjust-enhance-rates.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Apply rate patch
+        run: python tools/adjust-enhance-rates.py
+      - name: Check inline JavaScript syntax
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          s = Path('index.html').read_text(encoding='utf-8')
+          blocks = re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>', s, flags=re.S|re.I)
+          inline = [b for b in blocks if b.strip()]
+          if not inline:
+              raise SystemExit('no inline script found')
+          Path('/tmp/game.js').write_text('\n'.join(inline), encoding='utf-8')
+          PY
+          node --check /tmp/game.js
+      - name: Verify requested rates
+        run: grep -Fq "const rates = [100, 98, 80, 75, 65, 50, 45, 30, 25, 15, 15, 15, 15, 15, 10, 10, 10, 10, 5, 5];" index.html
+      - name: Commit updated game
+        run: |
+          git config user.name 'LostRuby12'
+          git config user.email 'zikeme06188@gmail.com'
+          git add index.html
+          if git diff --cached --quiet; then
+            echo 'No changes to commit'
+          else
+            git commit -m 'Adjust +11 to +20 enhancement rates'
+            git push origin HEAD:${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}
+          fi
