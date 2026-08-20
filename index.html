@@ -353,7 +353,7 @@
     <h2 style="text-align:center;">📅 출석 보상</h2>
     <div style="background:rgba(0,0,0,0.3);border:1px solid #5a4a8a;border-radius:14px;padding:18px;margin-top:10px;text-align:center;">
       <div style="font-size:1.35rem;font-weight:900;color:#ffd700;">매일 +100 LR</div>
-      <div style="font-size:0.88rem;opacity:0.82;margin-top:6px;">7일 연속마다 추가 +100 LP</div>
+      <div style="font-size:0.88rem;opacity:0.82;margin-top:6px;">7일 연속마다 추가 +200 LR</div>
     </div>
     <p id="attendance-info" style="text-align:center;line-height:1.7;margin-top:18px;opacity:0.88;"></p>
     <p id="attendance-msg" style="text-align:center;min-height:1.4em;margin-top:10px;font-size:0.9rem;"></p>
@@ -1750,8 +1750,9 @@ async function claimAttendanceReward() {
       const streak = (prev !== null && now !== null && now - prev === 1)
         ? Math.max(0, Number(attendance.streak) || 0) + 1
         : 1;
-      const lrReward = 100;
-      const lpReward = streak % 7 === 0 ? 100 : 0;
+      const streakLrBonus = streak % 7 === 0 ? 200 : 0;
+      const lrReward = 100 + streakLrBonus;
+      const lpReward = 0;
 
       base.lr = Math.max(0, Number(base.lr) || 0) + lrReward;
       base.lp = Math.max(0, Number(base.lp) || 0) + lpReward;
@@ -1770,8 +1771,8 @@ async function claimAttendanceReward() {
       }, { merge: true });
 
       updatedData = base;
-      rewardText = lpReward > 0
-        ? `출석 완료! +${lrReward} LR · 7일 연속 보너스 +${lpReward} LP`
+      rewardText = streakLrBonus > 0
+        ? `출석 완료! +100 LR · 7일 연속 보너스 +${streakLrBonus} LR`
         : `출석 완료! +${lrReward} LR`;
     });
 
@@ -2201,27 +2202,27 @@ function getWeaponList(cls) {
 }
 const TRANSCEND_WEAPON_NAMES = Object.freeze({
   sword: Object.freeze({
-    11: '신의 운명',
-    12: '참살쇄도류',
+    11: '천명의 신검',
+    12: '참살쇄도',
     13: '안슐루스',
     14: '신살흑도',
     15: '적월도',
     16: '명월도',
     17: '마검 데스티니',
-    18: '엑스칼리버',
-    19: '불멸 무라마사',
-    20: '살신명도'
+    18: '진·엑스칼리버',
+    19: '불멸의 무라마사',
+    20: '살신명도·종언'
   }),
   mage: Object.freeze({
     11: '고대의 전설',
     12: '신 전설의 시작',
     13: '파멸의 징조',
     14: '파멸의 노래',
-    15: '공허의 균열 지팡이',
+    15: '공허균열의 지팡이',
     16: '만물의 혼돈',
-    17: '만물의 파멸',
-    18: '만물의 샘물 지팡이',
-    19: '무한의 지팡이',
+    17: '만물의 근절',
+    18: '만물의 근원',
+    19: '무한회귀의 지팡이',
     20: '천지창조'
   })
 });
