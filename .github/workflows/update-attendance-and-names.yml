@@ -1,0 +1,58 @@
+name: Update attendance and weapon names
+
+on:
+  push:
+    paths:
+      - 'tools/update-attendance-and-names.py'
+      - '.github/workflows/update-attendance-and-names.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Apply patch
+        run: python tools/update-attendance-and-names.py
+      - name: Check inline JavaScript syntax
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          s = Path('index.html').read_text(encoding='utf-8')
+          blocks = re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>', s, flags=re.S|re.I)
+          inline = [b for b in blocks if b.strip()]
+          if not inline:
+              raise SystemExit('no inline script found')
+          Path('/tmp/game.js').write_text('\n'.join(inline), encoding='utf-8')
+          PY
+          node --check /tmp/game.js
+      - name: Verify changes
+        run: |
+          grep -Fq '7일 연속마다 추가 +200 LR' index.html
+          grep -Fq "11: '천명의 신검'" index.html
+          grep -Fq "12: '참살쇄도'" index.html
+          grep -Fq "18: '진·엑스칼리버'" index.html
+          grep -Fq "19: '불멸의 무라마사'" index.html
+          grep -Fq "20: '살신명도·종언'" index.html
+          grep -Fq "15: '공허균열의 지팡이'" index.html
+          grep -Fq "17: '만물의 근절'" index.html
+          grep -Fq "18: '만물의 근원'" index.html
+          grep -Fq "19: '무한회귀의 지팡이'" index.html
+          grep -Fq 'const streakLrBonus = streak % 7 === 0 ? 200 : 0;' index.html
+      - name: Commit updated game
+        run: |
+          git config user.name 'LostRuby12'
+          git config user.email 'zikeme06188@gmail.com'
+          git add index.html
+          if git diff --cached --quiet; then
+            echo 'No changes to commit'
+          else
+            git commit -m 'Update 7-day reward and transcend weapon names'
+            git push
+          fi
