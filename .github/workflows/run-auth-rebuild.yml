@@ -1,0 +1,41 @@
+name: Run auth rebuild
+
+on:
+  push:
+    paths:
+      - '.github/workflows/run-auth-rebuild.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch auth flow
+        run: python3 tools/rebuild_auth.py
+      - name: Syntax check
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          s = Path('index.html').read_text(encoding='utf-8')
+          required = ['id="login-screen"','id="register-screen"','function submitLogin()','function submitRegister()','fbDb.runTransaction','회원가입 완료! 방금 만든 계정으로 로그인하세요.']
+          missing = [x for x in required if x not in s]
+          if missing:
+              raise SystemExit('missing: ' + repr(missing))
+          blocks = re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>', s, flags=re.S|re.I)
+          Path('/tmp/game.js').write_text('\n'.join(x for x in blocks if x.strip()), encoding='utf-8')
+          PY
+          node --check /tmp/game.js
+      - name: Commit
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git commit -m 'Rebuild Firebase login and signup flow'
+          git push
