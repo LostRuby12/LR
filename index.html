@@ -1559,7 +1559,6 @@ const CODE_REWARD_TABLE = Object.freeze({
   '2f9b71232ffe6929a600c93140179eab6c3cd6f1274f0e26e63fdcf5abbb9edb': { codeId: 'reward_a', lp: 7777, lr: 0, label: '7,777 LP' },
   'c93438a758c9aa9c5aa17a2b8cc3ea1b41a355be4fecf4f400d2a66a654506a2': { codeId: 'reward_b', lp: 0, lr: 777, label: '777 LR' },
   '280d44ab1e9f79b5cce2dd4f58f5fe91f0fbacdac9f7447dffc318ceb79f2d02': { codeId: 'welcome_reward', lp: 0, lr: 500, label: '500 LR' },
-  '9c708286ba5458be8adda01ac28b33331ed6aeaac4e5c10897a0e7b7e17956dd': { codeId: 'welcome_reward', lp: 0, lr: 500, label: '500 LR' }
 });
 
 async function hashRewardCode(value) {
@@ -2200,6 +2199,33 @@ function getWeaponList(cls) {
   if (cls === 'archer') return ARCHER;
   return SWORD;
 }
+const TRANSCEND_WEAPON_NAMES = Object.freeze({
+  sword: Object.freeze({
+    11: '신의 운명',
+    12: '참살쇄도류',
+    13: '안슐루스',
+    14: '신살흑도',
+    15: '적월도',
+    16: '명월도',
+    17: '마검 데스티니',
+    18: '엑스칼리버',
+    19: '불멸 무라마사',
+    20: '살신명도'
+  }),
+  mage: Object.freeze({
+    11: '고대의 전설',
+    12: '신 전설의 시작',
+    13: '파멸의 징조',
+    14: '파멸의 노래',
+    15: '공허의 균열 지팡이',
+    16: '만물의 혼돈',
+    17: '만물의 파멸',
+    18: '만물의 샘물 지팡이',
+    19: '무한의 지팡이',
+    20: '천지창조'
+  })
+});
+
 function getWeapon(cls, lv, awakened, awakenType) {
   if (awakened) {
     if (awakenType === 'guardian') return Object.assign({}, GUARDIAN);
@@ -2212,7 +2238,7 @@ function getWeapon(cls, lv, awakened, awakenType) {
   if (lv > 10 && (cls === 'sword' || cls === 'mage')) {
     const extra = Math.max(0, lv - 10);
     weapon.atk = Math.max(0, Math.round((Number(weapon.atk) || 0) * (1 + extra * 0.10)));
-    weapon.name = `${weapon.name} · 초월 +${lv}`;
+    weapon.name = (TRANSCEND_WEAPON_NAMES[cls] && TRANSCEND_WEAPON_NAMES[cls][lv]) || `${weapon.name} · 초월 +${lv}`;
     weapon.desc = `초월 강화: +10 이후 단계당 공격력 +10% · ${weapon.desc || '기본 능력 유지'}`;
   }
   return weapon;
