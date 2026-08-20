@@ -2407,7 +2407,7 @@ function updateStatusIcons() {
 
 function getSuccessRate(lv) {
   // +1~+10 기존 확률, +11~+20은 보스전 전용 초월 강화 확률
-  const rates = [100, 98, 80, 75, 65, 50, 45, 30, 25, 15, 12, 10, 9, 8, 7, 6, 5, 4, 3, 2];
+  const rates = [100, 98, 80, 75, 65, 50, 45, 30, 25, 15, 15, 15, 15, 15, 10, 10, 10, 10, 5, 5];
   return rates[Math.min(Math.max(0, lv), rates.length - 1)];
 }
 
