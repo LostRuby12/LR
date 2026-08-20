@@ -1,0 +1,53 @@
+name: Switch to free reward system
+
+on:
+  push:
+    paths:
+      - 'tools/switch_to_free_rewards.py'
+      - '.github/workflows/switch-to-free-rewards.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Apply patch
+        run: python tools/switch_to_free_rewards.py
+      - name: Check inline JavaScript syntax
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          s = Path('index.html').read_text(encoding='utf-8')
+          blocks = re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>', s, flags=re.S|re.I)
+          inline = [b for b in blocks if b.strip()]
+          if not inline:
+              raise SystemExit('no inline script found')
+          Path('/tmp/game.js').write_text('\n'.join(inline), encoding='utf-8')
+          PY
+          node --check /tmp/game.js
+      - name: Verify free reward migration
+        run: |
+          ! grep -q 'firebase-functions-compat.js' index.html
+          ! grep -q 'fbFunctions' index.html
+          ! grep -qi 'godruin' index.html
+          ! grep -qi 'lostruby' index.html
+          grep -q 'CODE_REWARD_TABLE' index.html
+          grep -q 'attendanceDateSerial' index.html
+      - name: Commit updated game
+        run: |
+          git config user.name 'LostRuby12'
+          git config user.email 'zikeme06188@gmail.com'
+          git add index.html
+          if git diff --cached --quiet; then
+            echo 'No changes to commit'
+          else
+            git commit -m 'Use free hashed rewards and attendance'
+            git push
+          fi
