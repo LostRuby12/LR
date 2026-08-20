@@ -1,5 +1,6 @@
 name: Switch to free reward system
 
+# migration PR trigger
 on:
   push:
     paths:
