@@ -1,8 +1,11 @@
 name: Switch to free reward system
 
-# trigger after workflow registration
 on:
   push:
+    paths:
+      - 'tools/switch_to_free_rewards.py'
+      - '.github/workflows/switch-to-free-rewards.yml'
+  pull_request:
     paths:
       - 'tools/switch_to_free_rewards.py'
       - '.github/workflows/switch-to-free-rewards.yml'
@@ -15,6 +18,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -50,5 +55,5 @@ jobs:
             echo 'No changes to commit'
           else
             git commit -m 'Use free hashed rewards and attendance'
-            git push
+            git push origin HEAD:${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}
           fi
