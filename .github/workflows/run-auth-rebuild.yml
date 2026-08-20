@@ -14,6 +14,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Fix patch script replacement escaping
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('tools/rebuild_auth.py')
+          s = p.read_text(encoding='utf-8')
+          old = "s, n = re.subn(r'function showAuthTab\\(mode\\) \\{.*?(?=function exportSaveFile\\(\\))', auth_js, s, count=1, flags=re.S)"
+          new = "s, n = re.subn(r'function showAuthTab\\(mode\\) \\{.*?(?=function exportSaveFile\\(\\))', lambda m: auth_js, s, count=1, flags=re.S)"
+          if old not in s:
+              raise SystemExit('auth_js replacement line not found')
+          p.write_text(s.replace(old, new, 1), encoding='utf-8')
+          PY
       - name: Patch auth flow
         run: python3 tools/rebuild_auth.py
       - name: Syntax check
@@ -39,5 +52,3 @@ jobs:
           git add index.html
           git commit -m 'Rebuild Firebase login and signup flow'
           git push
-
-# trigger 2026-08-20
