@@ -285,10 +285,10 @@
   <!-- 0. 계정 시작 -->
   <div id="auth-screen" class="screen active">
     <h1>⚔️ 검 vs 지팡이</h1>
-    <p style="text-align:center; opacity:0.82; margin:6px 0 22px;">Firebase 서버 계정</p>
+    <div style="height:12px;"></div>
     <button class="btn btn-gold" style="margin-top:10px; font-size:1.15rem;" onclick="openLoginScreen()">🔐 로그인</button>
     <button class="btn" style="margin-top:12px; font-size:1.15rem;" onclick="openRegisterScreen()">📝 회원가입</button>
-    <p style="text-align:center; opacity:0.55; font-size:0.78rem; margin-top:20px;">이메일 입력 없이 닉네임 + 비밀번호로 이용합니다.</p>
+    <p id="auth-creator-credit" style="text-align:center; margin-top:24px; opacity:0.58; font-size:0.82rem;">제작자: Lost Ruby</p>
   </div>
 
   <div id="login-screen" class="screen">
@@ -327,7 +327,7 @@
     <p id="nick-display" style="text-align:center; color:#ffd700; font-size:0.95rem; margin-bottom:12px;"></p>
     <button class="btn btn-gold" style="margin-top:8px; font-size:1.15rem;" onclick="openPlayMenu()">▶️ 플레이</button>
     <button class="btn btn-super" style="margin-top:12px;" onclick="openShop()">🛒 상점</button>
-    <button class="btn" style="margin-top:12px; background:linear-gradient(135deg,#434343,#000000);" onclick="openEtcMenu()">⚙️ 기타</button>
+    <button class="btn" style="margin-top:36px; background:linear-gradient(135deg,#434343,#000000);" onclick="openEtcMenu()">⚙️ 기타</button>
     <p id="record-summary" style="text-align:center; margin-top:16px; opacity:0.75; font-size:0.9rem;"></p>
     <p id="creator-credit" onclick="onCreatorClick()" style="text-align:center; margin-top:18px; opacity:0.55; font-size:0.8rem; cursor:pointer; user-select:none;">제작자: Lost Ruby</p>
   </div>
@@ -335,18 +335,20 @@
   <!-- 기타 -->
   <div id="etc-screen" class="screen">
     <h2 style="text-align:center;">⚙️ 기타</h2>
-    <button class="btn" style="margin-top:12px; background:linear-gradient(135deg,#2b5876,#4e4376);" onclick="openMissions()">📋 미션</button>
-    <button class="btn" style="margin-top:12px; background:linear-gradient(135deg,#4a5568,#2d3748);" onclick="openCodex()">🏅 도감</button>
-    <button class="btn" style="margin-top:12px; background:linear-gradient(135deg,#11998e,#38ef7d);" onclick="openHelp()">📖 효과·능력 설명</button>
-    <button class="btn" style="margin-top:12px; background:linear-gradient(135deg,#667eea,#764ba2);" onclick="openStory()">📜 스토리</button>
-    <div style="flex:1; min-height:48px;"></div>
+    <div style="display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:18px;">
+      <button class="btn" style="margin:0; min-height:74px; padding:12px 8px; font-size:0.98rem; background:linear-gradient(135deg,#2b5876,#4e4376);" onclick="openMissions()">📋<br>미션</button>
+      <button class="btn" style="margin:0; min-height:74px; padding:12px 8px; font-size:0.98rem; background:linear-gradient(135deg,#4a5568,#2d3748);" onclick="openCodex()">🏅<br>도감</button>
+      <button class="btn" style="margin:0; min-height:74px; padding:12px 8px; font-size:0.92rem; background:linear-gradient(135deg,#11998e,#38ef7d);" onclick="openHelp()">📖<br>효과 · 능력 설명</button>
+      <button class="btn" style="margin:0; min-height:74px; padding:12px 8px; font-size:0.98rem; background:linear-gradient(135deg,#667eea,#764ba2);" onclick="openStory()">📜<br>스토리</button>
+    </div>
+    <div style="flex:1; min-height:70px;"></div>
     <button class="btn btn-danger" style="margin-top:28px;" onclick="logoutAccount()">로그아웃</button>
     <button class="btn" style="margin-top:12px; margin-bottom:8px;" onclick="showScreen('select-screen')">← 메인으로</button>
   </div>
 
   <!-- 효과·능력 설명 -->
   <div id="help-screen" class="screen">
-    <h2 style="text-align:center;">📖 효과·능력 설명</h2>
+    <h2 style="text-align:center;">📖 효과 · 능력 설명</h2>
     <div id="help-list" style="overflow-y:auto; max-height:72vh; padding:4px 2px;"></div>
     <button class="btn" style="margin-top:12px;" onclick="showScreen('etc-screen')">← 기타로</button>
   </div>
@@ -442,9 +444,6 @@
     <button class="btn btn-success" onclick="rtCreateRoom()">🟢 방 만들기 (실시간)</button>
     <button class="btn btn-super" style="margin-top:10px;" onclick="showScreen('rt-join-screen')">🔵 방 참가 (실시간)</button>
     <button class="btn btn-gold" style="margin-top:10px;" onclick="openRanking()">🏆 랭킹</button>
-    <p style="text-align:center; opacity:0.55; font-size:0.75rem; margin-top:14px;">오프라인 연습용 코드 결투</p>
-    <button class="btn" style="margin-top:6px;" onclick="startChallengeCreate()">📤 코드 결투 만들기</button>
-    <button class="btn" style="margin-top:6px;" onclick="showScreen('challenge-accept-screen')">📥 코드 결투 수락</button>
     <button class="btn" style="margin-top:14px;" onclick="showScreen('play-menu-screen')">← 플레이로</button>
   </div>
 
@@ -476,26 +475,6 @@
   </div>
 
 
-  <div id="challenge-accept-screen" class="screen">
-    <h2 style="text-align:center;">📥 결투 수락</h2>
-    <p style="text-align:center; opacity:0.8; font-size:0.85rem; margin-bottom:10px;">상대 결투 코드를 붙여넣으세요</p>
-    <textarea id="challenge-code-input" rows="5" placeholder="결투 코드"
-      style="width:100%; padding:12px; border-radius:12px; border:2px solid #8e2de2; background:#1a1a2e; color:#fff; font-size:0.8rem; resize:vertical; box-sizing:border-box;"></textarea>
-    <div id="challenge-preview" style="margin-top:10px; padding:10px; background:rgba(0,0,0,0.25); border-radius:10px; font-size:0.9rem; min-height:40px; display:none;"></div>
-    <button class="btn btn-success" style="margin-top:12px;" onclick="parseChallengeCode()">코드 확인</button>
-    <button class="btn btn-gold" style="margin-top:8px;" id="challenge-accept-btn" disabled onclick="acceptChallengeAndPlay()">이 상대로 강화 시작</button>
-    <button class="btn" style="margin-top:8px;" onclick="showScreen('challenge-menu-screen')">돌아가기</button>
-  </div>
-
-  <div id="challenge-create-screen" class="screen">
-    <h2 style="text-align:center;">📤 결투 코드 생성</h2>
-    <p id="challenge-create-info" style="text-align:center; margin-bottom:10px;"></p>
-    <textarea id="challenge-code-out" rows="5" readonly
-      style="width:100%; padding:12px; border-radius:12px; border:2px solid #ffd700; background:#1a1a2e; color:#ffd700; font-size:0.75rem; resize:vertical; box-sizing:border-box;"></textarea>
-    <button class="btn btn-success" style="margin-top:12px;" onclick="copyChallengeCode()">코드 복사</button>
-    <button class="btn btn-gold" style="margin-top:8px;" onclick="goBattle()">이 빌드로 AI와 연습 전투</button>
-    <button class="btn" style="margin-top:8px;" onclick="showScreen('select-screen')">메인으로</button>
-  </div>
 
 
   <div id="ranking-screen" class="screen">
@@ -555,7 +534,6 @@
     <button class="btn" onclick="doEnhance('basic')">일반 강화 (기회 2 · 1회 시도)</button>
     <button class="btn btn-super" onclick="doEnhance('super')">슈퍼 강화 (기회 3 · 확률×1.5 · 1회 시도)</button>
     <button class="btn btn-gold" style="margin-top:20px;" id="btn-go-battle" onclick="goBattle()">전투 시작!</button>
-    <button class="btn btn-super" style="margin-top:8px;" id="btn-make-challenge" onclick="finishChallengeCreate()">📤 결투 코드 만들기</button>
 
     <div id="enhance-rt-box" style="margin-top:16px; padding:12px; border:1px solid #5a4a8a; border-radius:12px; background:rgba(80,60,140,0.25);">
       <div style="font-weight:700; color:#cbb8ff; margin-bottom:6px;">⚡ 실시간 결투</div>
@@ -1561,46 +1539,51 @@ function renderHelp() {
   const el = $('help-list');
   if (!el) return;
   let h = '';
-  h += helpSection('상태이상');
-  h += helpCard('💫', '마비', '다음 내 공격 턴을 1회 스킵한다.');
-  h += helpCard('😈', '타락', '다음 내 공격 턴에 공격·능력이 나에게 반사된다.');
-  h += helpCard('☠️', '저주', '능력 사용 불가 + 공격력 30% 감소. 최대 2중첩(중첩마다 추가 감소).');
-  h += helpCard('🔥', '화염', '2턴 유지. 매 턴 상대 현재 체력의 2% 추가 피해 + 체력 회복 효과 절반.');
-  h += helpCard('🌑', '부패', '상대 턴마다 상대 최대(또는 현재 규칙상) 체력의 10% 감소. 일부 무기는 확정/확률.');
-  h += helpCard('🔒', '봉인', '즉사와 비슷하게 즉시 패배 처리. (불사·부활 등은 별도 규칙)');
-  h += helpCard('🪞', '미러링', '다음 내 공격 시: 데미지는 내 무기, 능력은 상대 무기 확률로 발동.');
-  h += helpCard('🛡️', '보호막', '피해를 먼저 흡수. 보호막이 있으면 일부 상태이상도 막는다. 성자 긴급 보호막(체력 20% 이하) / 수호천사 매턴 +50.');
-  h += helpCard('✨', '정화', '35% 확률. 내 상태이상이 있으면 제거, 없으면 다음 턴 상대 능력 1회 무시.');
+  h += `<p style="text-align:center;opacity:0.7;font-size:0.82rem;line-height:1.5;margin:0 4px 14px;">아래 내용은 핵심 규칙 요약입니다. 세부 확률과 수치는 각 무기의 강화 화면 설명이 우선합니다.</p>`;
 
-  h += helpSection('전투 능력');
-  h += helpCard('⚡', '이중 공격', '한 턴에 공격을 두 번 한다.');
-  h += helpCard('💀', '즉사 / 참격 / 초신성', '확률로 상대를 즉시 쓰러뜨린다. 조건형(체력 % 이하)이 있는 무기도 있다. 보호막이 있으면 즉사를 1회 막을 수 있다.');
-  h += helpCard('🩸', '흡혈', '가한 피해의 일부만큼 체력을 회복한다.');
-  h += helpCard('📤', '흡수', '상대 체력 비율만큼 깎고 회복한다.');
-  h += helpCard('🌑', '몰락의 밤', '상대 현재 체력의 절반을 삭제한다.');
-  h += helpCard('🍽️', '최후의 만찬', '받은 피해의 일부(무기별 %)를 체력으로 회복한다. 단, 자신의 체력이 최대 체력의 10% 이하면 발동하지 않는다.');
-  h += helpCard('👑', '부활', '죽음에 이르면 1회 체력 일부로 살아난다. (신의 유산 50%, 수호천사 25% 등)');
-  h += helpCard('🛡️', '최후의 저항', '각성(엑스칼리버) 시 1회 체력 1로 버틴다.');
-  h += helpCard('💧', '능력 무효', '피격 시 확률로 상대 능력을 무효화한다. (신의 눈물 등)');
-  h += helpCard('🛡️', '공격 무시', '피격 시 확률로 일반 공격을 무시한다. 즉사류는 못 피한다.');
-  h += helpCard('✝️', '마법 저항', '마법 직업에게 받는 데미지를 %로 감소한다.');
-  h += helpCard('⚔️', '각성 (엑스칼리버)', '철검 등에서 확률 각성. 즉사 고확률 + 최후의 저항. 자신 턴 2회 후 파괴.');
-  h += helpCard('👼', '각성 (수호천사)', '성자 지팡이 등에서 확률 각성. 매턴 보호막 +50, 1회 25% 부활.');
+  h += helpSection('상태 효과');
+  h += helpCard('💫', '마비', '다음 공격 턴을 1회 건너뜁니다.');
+  h += helpCard('😈', '타락', '다음 공격 턴의 공격과 능력이 자신에게 되돌아옵니다.');
+  h += helpCard('☠️', '저주', '능력을 사용할 수 없고 공격력이 감소합니다. 최대 2중첩됩니다.');
+  h += helpCard('🔥', '화염', '2턴 동안 지속 피해를 받고, 체력 회복 효과가 절반으로 줄어듭니다.');
+  h += helpCard('🌑', '부패', '턴이 지날 때마다 체력이 감소합니다. 감소 기준과 발동 확률은 무기별 규칙을 따릅니다.');
+  h += helpCard('🔒', '봉인', '발동되면 즉시 패배 판정이 발생합니다. 부활·불사 같은 생존 효과는 각 규칙을 따릅니다.');
+  h += helpCard('🪞', '미러링', '다음 공격의 피해는 내 무기로 주고, 능력은 상대 무기의 능력을 빌려 발동합니다.');
 
-  h += helpSection('처리 순서 (요약)');
-  h += helpCard('1️⃣', '턴 시작', '마비면 스킵. 부패/화염 등 지속 효과 적용.');
-  h += helpCard('2️⃣', '예약 효과', '타락·미러링 등 미리 걸려 있던 효과 우선.');
-  h += helpCard('3️⃣', '능력 판정', '저주가 있으면 능력 불가(미러링 예외 가능). 정화/무효/보호막이 상태이상을 막을 수 있음.');
-  h += helpCard('4️⃣', '데미지', '보호막 흡수 → 체력 감소 → 부활/불사/무기 교체 체크.');
+  h += helpSection('공격 · 회복');
+  h += helpCard('⚡', '이중 공격', '한 턴에 공격을 두 번 합니다.');
+  h += helpCard('💀', '즉사 · 참격 · 초신성', '확률 또는 조건을 만족하면 상대를 즉시 쓰러뜨립니다. 보호막이 즉사류를 1회 막는 경우가 있습니다.');
+  h += helpCard('🩸', '흡혈', '가한 피해의 일부만큼 자신의 체력을 회복합니다.');
+  h += helpCard('📤', '흡수', '상대 체력을 깎으면서 일정량을 자신의 체력으로 회복합니다.');
+  h += helpCard('🌑', '몰락의 밤', '상대의 현재 체력을 절반가량 깎는 강력한 효과입니다.');
+  h += helpCard('🍽️', '최후의 만찬', '받은 피해의 일부를 체력으로 되돌려 받습니다. 체력이 너무 낮으면 발동하지 않습니다.');
+
+  h += helpSection('방어 · 생존');
+  h += helpCard('🛡️', '보호막', '피해를 체력보다 먼저 흡수합니다. 일부 상태 효과와 즉사 판정을 막아주는 경우도 있습니다.');
+  h += helpCard('✨', '정화', '상태 효과가 있으면 제거하고, 상태 효과가 없을 때는 다음 상대 능력을 막는 효과로 이어질 수 있습니다.');
+  h += helpCard('👑', '부활', '체력이 0이 되었을 때 1회 일정 체력으로 다시 살아납니다. 회복 비율은 무기마다 다릅니다.');
+  h += helpCard('🛡️', '최후의 저항', '치명적인 피해를 받아도 1회 체력 1로 버팁니다.');
+  h += helpCard('💧', '능력 무효', '피격 시 확률로 상대 무기의 능력 효과를 막습니다.');
+  h += helpCard('🛡️', '공격 무시', '피격 시 확률로 일반 공격을 완전히 무시합니다. 즉사류에는 적용되지 않습니다.');
+  h += helpCard('✝️', '마법 저항', '마법 계열 직업에게 받는 피해를 감소시킵니다.');
+
+  h += helpSection('각성');
+  h += helpCard('⚔️', '엑스칼리버', '일부 검이 각성하면 강력한 즉사 능력과 최후의 저항을 얻습니다. 일정 턴 뒤 무기가 파괴됩니다.');
+  h += helpCard('👼', '수호천사', '일부 지팡이가 각성하면 매 턴 보호막을 얻고, 1회 부활 효과를 사용할 수 있습니다.');
+
+  h += helpSection('전투 처리 순서');
+  h += helpCard('1️⃣', '턴 시작', '마비 여부를 확인하고 화염·부패 같은 지속 효과를 먼저 처리합니다.');
+  h += helpCard('2️⃣', '예약 효과', '타락·미러링처럼 이전 턴에 걸린 효과를 처리합니다.');
+  h += helpCard('3️⃣', '능력 판정', '저주·정화·능력 무효·보호막 등 능력 사용 가능 여부를 확인합니다.');
+  h += helpCard('4️⃣', '피해와 생존', '보호막 → 체력 감소 → 부활·최후의 저항·무기 교체 순으로 생존 여부를 확인합니다.');
 
   h += helpSection('직업 기본');
-  h += helpCard('🗡️', '검사', '시작 체력 250. 물리·각성·흡혈·참격 계열.');
-  h += helpCard('🪄', '마법사', '시작 체력 150. 봉인·저주·미러링·부패·즉사·회피.');
-  h += helpCard('🗡️', '암살자', '상점 해금. 유리몸·암살 특화 (해금 후 사용).');
-  h += helpCard('✝️', '성직자', '상점 해금. 회복·보호 계열.');
-  h += helpCard('🏹', '궁수', '상점 해금. 이중·원거리 견제.');
+  h += helpCard('🗡️', '검사', '시작 체력 250 · 물리 공격, 흡혈, 참격, 각성 계열에 강점이 있습니다.');
+  h += helpCard('🪄', '마법사', '시작 체력 150 · 봉인, 저주, 미러링, 부패 등 특수 효과에 강점이 있습니다.');
+  h += helpCard('🗡️', '암살자', '상점 해금 직업 · 낮은 체력 대신 강력한 암살 능력을 노립니다.');
+  h += helpCard('✝️', '성직자', '상점 해금 직업 · 회복, 보호막, 정화 등 생존 능력에 강점이 있습니다.');
+  h += helpCard('🏹', '궁수', '상점 해금 직업 · 연속 공격과 원거리 견제에 강점이 있습니다.');
 
-  h += `<p style="text-align:center;opacity:0.55;font-size:0.8rem;margin:12px 0 4px;">세부 확률은 강화 화면 무기 설명 / 전투 로그를 참고하세요.</p>`;
   el.innerHTML = h;
 }
 
@@ -2676,7 +2659,6 @@ function updateEnhanceRtBox() {
   const openBtn = $('btn-rt-open');
   const status = $('enhance-rt-status');
   const gb = $('btn-go-battle');
-  const mc = $('btn-make-challenge');
   const connected = !!(rtConnected && rtActive !== true && (rtPeer || rtConn));
   // rtConnected is the right flag during lobby/enhance before battle
   const inRoom = !!rtConnected;
@@ -2690,13 +2672,11 @@ function updateEnhanceRtBox() {
     }
     if (openBtn) openBtn.style.display = 'none';
     if (gb) gb.style.display = 'none';
-    if (mc) mc.style.display = 'none';
   } else {
     if (status) status.textContent = '결투방 연결 후 이 빌드로 실시간 준비할 수 있습니다.';
     if (readyBtn) readyBtn.style.display = 'none';
     if (openBtn) openBtn.style.display = 'block';
     if (gb) gb.style.display = 'block';
-    if (mc) mc.style.display = challengeCreating ? 'block' : 'block';
   }
 }
 
@@ -3008,135 +2988,6 @@ function openChallengeMenu() {
   showScreen('challenge-menu-screen');
 }
 
-function startChallengeCreate() {
-  if (!requireNick()) return;
-  challengeCreating = true;
-  challengeMode = false;
-  challengeEnemyData = null;
-  pendingChallenge = null;
-  // 직업 선택 화면으로 — 이미 선택되어 있으면 강화로
-  if (playerClass) {
-    startEnhance();
-  } else {
-    alert('메인에서 직업을 선택한 뒤, 강화하고 결투 코드를 만드세요.');
-    showScreen('select-screen');
-  }
-}
-
-function encodeChallenge(obj) {
-  try {
-    const s = JSON.stringify(obj);
-    return btoa(unescape(encodeURIComponent(s)));
-  } catch (e) {
-    return null;
-  }
-}
-
-function decodeChallenge(code) {
-  try {
-    const raw = (code || '').trim().replace(/\s+/g, '');
-    if (!raw) return null;
-    const s = decodeURIComponent(escape(atob(raw)));
-    const obj = JSON.parse(s);
-    if (!obj || obj.v !== 1) return null;
-    if (obj.cls !== 'sword' && obj.cls !== 'mage') return null;
-    const lv = parseInt(obj.lv, 10);
-    if (!(lv >= 0 && lv <= 10)) return null;
-    const nick = String(obj.nick || '익명').slice(0, 12);
-    const maxHp = parseInt(obj.hp, 10);
-    if (!(maxHp > 0 && maxHp < 100000)) return null;
-    const lr = (typeof obj.lr === 'number' && obj.lr >= 0) ? Math.floor(obj.lr) : 0;
-    return { v: 1, nick, cls: obj.cls, lv, hp: maxHp, maxHp, lr };
-  } catch (e) {
-    return null;
-  }
-}
-
-function finishChallengeCreate() {
-  if (!requireNick()) return;
-  if (!playerClass) {
-    alert('직업이 없습니다.');
-    return;
-  }
-  const base = getBaseHp(playerClass);
-  const payload = {
-    v: 1,
-    nick: saveData.nick,
-    cls: playerClass,
-    lv: level,
-    hp: maxHp || (base + level * 50),
-    lr: saveData.lr || 0
-  };
-  upsertRankBoard(payload.nick, payload.lr);
-  const code = encodeChallenge(payload);
-  if (!code) {
-    alert('결투 코드 생성 실패');
-    return;
-  }
-  const info = $('challenge-create-info');
-  if (info) {
-    info.innerHTML = `<b>${payload.nick}</b> · ${payload.lr} LR<br>${classLabel(payload.cls)} +${payload.lv} · 체력 ${payload.hp}<br><span style="opacity:0.8">승리 시 100 LR</span>`;
-  }
-  const out = $('challenge-code-out');
-  if (out) out.value = code;
-  challengeCreating = false;
-  showScreen('challenge-create-screen');
-}
-
-function copyChallengeCode() {
-  const out = $('challenge-code-out');
-  if (!out || !out.value) return;
-  const val = out.value;
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(val).then(() => alert('복사되었습니다!')).catch(() => {
-      out.select();
-      document.execCommand('copy');
-      alert('복사되었습니다!');
-    });
-  } else {
-    out.select();
-    document.execCommand('copy');
-    alert('복사되었습니다!');
-  }
-}
-
-function parseChallengeCode() {
-  const inp = $('challenge-code-input');
-  const prev = $('challenge-preview');
-  const btn = $('challenge-accept-btn');
-  pendingChallenge = null;
-  if (btn) btn.disabled = true;
-  const data = decodeChallenge(inp ? inp.value : '');
-  if (!data) {
-    if (prev) {
-      prev.style.display = 'block';
-      prev.innerHTML = '<span style="color:#ff6b6b;">코드가 올바르지 않습니다.</span>';
-    }
-    return;
-  }
-  pendingChallenge = data;
-  if (typeof data.lr === 'number') upsertRankBoard(data.nick, data.lr);
-  if (prev) {
-    prev.style.display = 'block';
-    prev.innerHTML = `상대: <b style="color:#ffd700">${data.nick}</b> · ${data.lr || 0} LR<br>` +
-      `${classLabel(data.cls)} +${data.lv} · 체력 ${data.maxHp}`;
-  }
-  if (btn) btn.disabled = false;
-}
-
-function acceptChallengeAndPlay() {
-  if (!requireNick()) return;
-  if (!pendingChallenge) {
-    alert('먼저 코드를 확인하세요.');
-    return;
-  }
-  challengeEnemyData = pendingChallenge;
-  challengeMode = true;
-  challengeCreating = false;
-  // 상대와 반대 직업 강제? → 자유롭게 선택. 메인에서 직업 고르고 강화
-  alert(`${challengeEnemyData.nick}(+${challengeEnemyData.lv})와 결투합니다!\n직업을 고른 뒤 강화하세요.`);
-  showScreen('play-menu-screen');
-}
 
 function buildEnemyFromChallenge() {
   const d = challengeEnemyData;
