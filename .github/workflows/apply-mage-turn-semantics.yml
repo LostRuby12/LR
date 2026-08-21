@@ -1,0 +1,52 @@
+name: Final mage transcend validation
+on:
+  pull_request:
+    branches: [ main ]
+permissions:
+  contents: write
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mage-transcend-11-20
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Apply final turn wording
+        run: python tools/patch_mage_turn_semantics.py
+      - name: JavaScript syntax and final checks
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path('index.html').read_text(encoding='utf-8')
+          blocks=re.findall(r'<script(?:\s[^>]*)?>([\s\S]*?)</script>',s)
+          Path('/tmp/game.js').write_text([b for b in blocks if b.strip()][-1],encoding='utf-8')
+          must=[
+            "if (level === 12) mageSkillNextReadyTurn = 3;",
+            "mageSkillNextReadyTurn = turnUsed + info.cooldown;",
+            "15: Object.freeze({ name: '공허균열의 지팡이', atk: 140, rift: 0.40",
+            "20: Object.freeze({ name: '천지창조', atk: 500",
+            "enemy.creationLocked = true",
+            "mage18NormalImmuneEnemyTurns = 2",
+            "mage19RewindCharges--",
+            "endBattle(true, '만물의 소멸')"
+          ]
+          miss=[x for x in must if x not in s]
+          if miss: raise SystemExit('missing final checks: '+repr(miss))
+          ids=re.findall(r'\bid="([^"]+)"',s)
+          dup=sorted({x for x in ids if ids.count(x)>1})
+          if dup: raise SystemExit('duplicate ids: '+', '.join(dup))
+          PY
+          node --check /tmp/game.js
+      - name: Commit final game
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if ! git diff --cached --quiet; then
+            git commit -m "Align mage skill turn timing"
+            git push origin HEAD:mage-transcend-11-20
+          fi
