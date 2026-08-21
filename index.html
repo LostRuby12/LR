@@ -1591,8 +1591,12 @@ function refreshClassCards() {
   });
 }
 
-function openPlayMenu() {
+async function openPlayMenu() {
   if (!requireLogin()) return;
+  if (useCloud && fbDb && fbUserId) {
+    try { await getTrustedAttendanceToday(); } catch (e) { console.warn('play daily server date sync failed', e); }
+  }
+  normalizeMissions();
   updateRecordSummary();
   pendingPlayMode = null;
   showScreen('play-menu-screen');
@@ -3040,8 +3044,10 @@ function rtNormalizeBuild(data) {
   const lvRaw = Number(data && data.lv);
   const lv = clamp(Number.isFinite(lvRaw) ? Math.floor(lvRaw) : 0, 0, 10);
   const maxHpSafe = getBaseHp(cls) + lv * 100;
+  const candidateNick = cleanNickname(String((data && data.nick) || '상대'));
+  const safeNick = validateNickname(candidateNick) ? '상대' : candidateNick;
   return {
-    nick: String((data && data.nick) || '상대').slice(0, 12),
+    nick: safeNick || '상대',
     cls,
     lv,
     hp: maxHpSafe,
@@ -3098,7 +3104,7 @@ function rtApplyPlayerState(st) {
   playerMirror = !!st.mirror;
   playerSealed = !!st.sealed;
   playerPurifyNext = !!st.purifyNext;
-  playerShield = Math.max(0, Number(st.shield) || 0);
+  playerShield = clamp(Number(st.shield) || 0, 0, 300);
   playerShieldUsed = !!st.shieldUsed;
   playerAwakened = !!st.awakened;
   playerAwakenType = st.awakenType === 'guardian' ? 'guardian' : (st.awakenType === 'excalibur' ? 'excalibur' : null);
@@ -3117,7 +3123,7 @@ function rtApplyEnemyState(st) {
   enemyMirror = !!st.mirror;
   enemySealed = !!st.sealed;
   enemyPurifyNext = !!st.purifyNext;
-  enemyShield = Math.max(0, Number(st.shield) || 0);
+  enemyShield = clamp(Number(st.shield) || 0, 0, 300);
   enemyShieldUsed = !!st.shieldUsed;
   enemyAwakened = !!st.awakened;
   enemyAwakenType = st.awakenType === 'guardian' ? 'guardian' : (st.awakenType === 'excalibur' ? 'excalibur' : null);
@@ -3161,7 +3167,7 @@ function rtSetupConn(conn) {
   });
   conn.on('data', (data) => rtOnData(data));
   conn.on('close', () => {
-    if (rtClosingLocally) {
+    if (rtClosingLocally || conn !== rtConn) {
       rtConnected = false;
       return;
     }
@@ -3492,7 +3498,8 @@ function rtOnData(data) {
       setTimeout(() => rtLeave(), 0);
       return;
     }
-    rtOppNick = data.nick || '상대';
+    const candidateNick = cleanNickname(String(data.nick || '상대'));
+    rtOppNick = validateNickname(candidateNick) ? '상대' : (candidateNick || '상대');
     if (typeof data.lr === 'number') upsertRankBoard(rtOppNick, data.lr);
     const info = $('rt-lobby-info');
     if (info) info.textContent = `방 ${rtRoomId} · 상대: ${rtOppNick}`;
