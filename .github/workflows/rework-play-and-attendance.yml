@@ -1,0 +1,68 @@
+name: Rework play hub and attendance
+
+on:
+  pull_request:
+    paths:
+      - 'tools/rework_play_and_attendance.py'
+      - '.github/workflows/rework-play-and-attendance.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Apply play and attendance patch
+        run: python tools/rework_play_and_attendance.py
+      - name: Check inline JavaScript syntax
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          s = Path('index.html').read_text(encoding='utf-8')
+          blocks = re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>', s, flags=re.S|re.I)
+          inline = [b for b in blocks if b.strip()]
+          if not inline:
+              raise SystemExit('no inline script found')
+          Path('/tmp/game.js').write_text('\n'.join(inline), encoding='utf-8')
+          PY
+          node --check /tmp/game.js
+      - name: Validate screen structure
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          s = Path('index.html').read_text(encoding='utf-8')
+          ids = re.findall(r'\bid="([^"]+)"', s)
+          duplicates = sorted({x for x in ids if ids.count(x) > 1})
+          if duplicates:
+              raise SystemExit('duplicate ids: ' + ', '.join(duplicates[:20]))
+          for sid in ['play-menu-screen','main-chapter-screen','duel-type-screen','mode-class-screen','challenge-menu-screen','attendance-screen']:
+              if f'id="{sid}"' not in s:
+                  raise SystemExit('missing screen: ' + sid)
+          for fn in ['openMainChapterMenu','openDuelTypeMenu','openModeClassSelect','backFromModeClass','confirmModeClass','getTrustedAttendanceToday']:
+              if f'function {fn}' not in s and f'async function {fn}' not in s:
+                  raise SystemExit('missing function: ' + fn)
+          if 'function kstTodayClient()' in s:
+              raise SystemExit('device-date attendance logic remains')
+          if 'attendance_server_claimed_at' not in s or 'FieldValue.serverTimestamp()' not in s:
+              raise SystemExit('server timestamp attendance guard missing')
+          PY
+      - name: Commit updated game
+        run: |
+          git config user.name 'LostRuby12'
+          git config user.email 'zikeme06188@gmail.com'
+          git add index.html
+          if git diff --cached --quiet; then
+            echo 'No changes to commit'
+          else
+            git commit -m 'Rework play flow and secure attendance time'
+            git push origin HEAD:${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}
+          fi
