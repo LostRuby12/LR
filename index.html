@@ -2516,7 +2516,9 @@ function hasSaintShieldWeapon(isPlayer) {
       if (!enemy) return false;
       if (enemyAwakened && enemyAwakenType === 'guardian') return true;
       if (enemy.class !== 'mage' && enemy.class !== 'priest') return false;
-      const base = getWeapon(enemy.class, enemy.level, false, null);
+      const base = enemy.creationLocked
+        ? (enemy.weapon || {})
+        : getWeapon(enemy.class, enemy.level, false, null);
       return !!(base && base.shield);
     }
   } catch (e) { return false; }
@@ -4293,7 +4295,7 @@ function mageActiveSkillInfo() {
 
 function canUseMageSkillNow() {
   const info = mageActiveSkillInfo();
-  if (!info || battleEnded || playerAttackLock || rtActive) return false;
+  if (!info || battleEnded || playerAttackLock || rtActive || autoMode) return false;
   if (playerParalyzed || playerSealed || playerCursed > 0) return false;
   if (level === 20 && mage20SkillUsed) return false;
   const upcomingTurn = playerTurnCount + 1;
@@ -4321,6 +4323,8 @@ function updateMageSkillButton() {
     status = '상태이상으로 이번 턴 스킬 사용 불가';
   } else if (playerCursed > 0) {
     status = '저주로 스킬 사용 불가';
+  } else if (autoMode) {
+    status = '자동전투 중에는 스킬 사용 불가';
   } else if (upcomingTurn >= mageSkillNextReadyTurn) {
     status = `사용 가능 · 자신의 ${upcomingTurn}번째 턴`;
   } else {
@@ -4482,15 +4486,26 @@ async function applyMage20Creation() {
     enemy.level = newLv;
     enemy.atk = newAtk;
     enemy.weapon = newWeapon;
+    enemy.creationLocked = true;
+    const rebuiltMaxHp = getBaseHp(enemy.class) + newLv * 100;
+    enemy.maxHp = Math.max(1, rebuiltMaxHp);
+    enemy.hp = clamp(Number(enemy.hp) || 0, 0, enemy.maxHp);
     enemyAwakened = false;
     enemyAwakenType = null;
+    enemyExcalTurns = 0;
+    enemyLastStandUsed = false;
+    enemyShield = 0;
+    enemyShieldUsed = false;
+    enemyPurifyNext = false;
     enemy.double = 0;
     enemy.paralyze = 0;
     enemy.lifestealOnHit = 0;
     if ($('e-weapon')) $('e-weapon').textContent = `${newWeapon.name} +${newLv}`;
     if ($('e-desc')) $('e-desc').textContent = newWeapon.desc;
-    await showAbility('🌌 천지창조!', `상대를 +${newLv} · 공격력 ${newAtk} · ${newWeapon.desc} 로 재구성!`);
-    addLog('ability', `천지창조: 상대 +${newLv}, ATK ${newAtk}, ${newWeapon.desc}`);
+    await showAbility('🌌 천지창조!', `상대를 +${newLv} · 최대HP ${enemy.maxHp} · 공격력 ${newAtk} · ${newWeapon.desc} 로 재구성!`);
+    addLog('ability', `천지창조: 상대 +${newLv}, MaxHP ${enemy.maxHp}, ATK ${newAtk}, ${newWeapon.desc}`);
+    updateHPBars();
+    updateStatusIcons();
     updateMageSkillButton();
     await enemyAttack();
   } finally {
@@ -4880,10 +4895,15 @@ async function playerAttack() {
   // 균열: +15 40%, +16 5% — 데미지 2배 + 보호막/정화 무시
   let riftThisTurn = false;
   if (canAbility && !fallSelf && abilityW.rift && rand() < abilityW.rift) {
-    riftThisTurn = true;
-    dmg *= 2;
-    await showAbility('🕳️ 균열!', `공격 데미지 2배 (${dmg}) · 보호막/정화 무시!`);
-    addLog('ability', `균열 발동: ${dmg} 데미지`);
+    if (hasNullify(false)) {
+      await showAbility('💧 적의 능력 무효!', '균열이 능력 무효에 막혔다!');
+      addLog('ability', '균열 발동 실패: 능력 무효');
+    } else {
+      riftThisTurn = true;
+      dmg *= 2;
+      await showAbility('🕳️ 균열!', `공격 데미지 2배 (${dmg}) · 보호막/정화 무시!`);
+      addLog('ability', `균열 발동: ${dmg} 데미지`);
+    }
   }
 
   // 데미지 적용
@@ -5107,7 +5127,7 @@ async function enemyAttack() {
   }
 
   // 적 각성
-  let baseEW = getWeapon(enemy.class, enemy.level, false, null);
+  let baseEW = enemy && enemy.creationLocked ? (enemy.weapon || {}) : getWeapon(enemy.class, enemy.level, false, null);
   if (!enemyAwakened && baseEW.awakenChance && rand() < baseEW.awakenChance) {
     enemyAwakened = true;
     enemyAwakenType = 'excalibur';
