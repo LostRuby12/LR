@@ -670,16 +670,16 @@
 <script>
 // ========== 데이터 ==========
 const SWORD = [
-  { name: "목검", atk: 7, desc: "" },
+  { name: "목검", atk: 10, desc: "" },
   { name: "돌검", atk: 15, lifesteal: 0.175, desc: "흡혈 17.5%(확정)" },
-  { name: "철검", atk: 10, awakenChance: 0.04, desc: "4% 각성→엑스칼리버" },
-  { name: "화검", atk: 10, fire: true, fireRate: 0.35, desc: "35% 화염(2턴: 현재HP2%+회복반감)" },
-  { name: "백사의 침", atk: 15, extra: 20, extraRate: 0.10, paralyze: 0.35, desc: "10%추가20뎀 · 마비35%" },
-  { name: "공허의 대검", atk: 10, corrupt: true, desc: "부패 확정" },
+  { name: "철검", atk: 20, awakenChance: 0.04, desc: "4% 각성→엑스칼리버" },
+  { name: "화검", atk: 25, fire: true, fireRate: 0.35, desc: "35% 화염(2턴: 현재HP2%+회복반감)" },
+  { name: "백사의 침", atk: 35, extra: 20, extraRate: 0.10, paralyze: 0.35, desc: "10%추가20뎀 · 마비35%" },
+  { name: "공허의 대검", atk: 15, corrupt: true, desc: "부패 확정" },
   { name: "성검", atk: 40, purify: 0.35, magicResistPct: 0.30, desc: "정화 35% · 마법 데미지 30% 감소" },
   { name: "세계를 가르는 검", atk: 35, instant: 0.125, instantLow: 0.20, desc: "참격12.5% · HP30%↓시20%" },
-  { name: "몰락한 신의 검", atk: 30, absorb: 0.05, halfkill: 0.15, desc: "흡수5% · 몰락의밤15%" },
-  { name: "신의 유산", atk: 35, revive: true, lastsupper: 0.45, desc: "부활 · 최후의만찬(받은피해45%, 내HP10%↓시 불가)" }
+  { name: "몰락한 신의 검", atk: 45, absorb: 0.05, halfkill: 0.15, desc: "흡수5% · 몰락의밤15%" },
+  { name: "신의 유산", atk: 65, revive: true, lastsupper: 0.45, desc: "부활 · 최후의만찬(받은피해45%, 내HP10%↓시 불가)" }
 ];
 
 const EXCALIBUR = {
@@ -691,7 +691,7 @@ const GUARDIAN = {
 };
 
 const STAFF = [
-  { name: "나무 지팡이", atk: 5, seal: 0.02, desc: "2% 봉인" },
+  { name: "나무 지팡이", atk: 10, seal: 0.02, desc: "2% 봉인" },
   { name: "성스러운 지팡이", atk: 10, curse: 0.15, desc: "15% 저주(능력제한·뎀30%↓)" },
   { name: "세계수의 지팡이", atk: 15, mirror: 0.20, desc: "20% 미러링" },
   { name: "괴략의 대가의 지팡이", atk: 10, instant: 0.005, double: 0.10, corrupt: 0.15, desc: "0.5%즉사 · 10%이중 · 15%부패" },
@@ -3210,7 +3210,7 @@ function rtSubmitBuild() {
   if (level === 0 && !confirm('강화 0으로 준비할까요?')) return;
   const base = getBaseHp(playerClass);
   // 최종 체력 확정
-  maxHp = base + level * 50;
+  maxHp = base + level * 100;
   hp = maxHp;
   const build = {
     type: 'ready',
@@ -3303,7 +3303,7 @@ function rtBeginBattle(iAmFirst) {
   battleFlags = { tookDamage: false, minHpRatio: 1, awakened: false, shieldUsed: false };
   // HP from enhance already set
   if (!maxHp || maxHp <= 0) {
-    maxHp = (getBaseHp(playerClass)) + level * 50;
+    maxHp = (getBaseHp(playerClass)) + level * 100;
     hp = maxHp;
   }
 
@@ -3621,7 +3621,7 @@ async function doEnhance(type) {
     if (success) {
       level = Math.min(maxEnhanceLevel, level + 1);
       const base = getBaseHp(playerClass);
-      maxHp = base + level * 50;
+      maxHp = base + level * 100;
       hp = maxHp;
       showResult(true, `+${level} 성공!`);
       await sleep(700);
@@ -3630,7 +3630,7 @@ async function doEnhance(type) {
       if (level >= 5 && rand() < 0.20) {
         level = Math.max(0, level - 1);
         const base = getBaseHp(playerClass);
-        maxHp = base + level * 50;
+        maxHp = base + level * 100;
         hp = Math.min(hp, maxHp);
         showResult(false, `실패... 등급 하락! (+${level})`);
       } else {
@@ -3724,7 +3724,7 @@ function goBattle() {
   let enemyLevel = clamp(baseLv + offset, 1, 10);
   enemyPreviewLevel = enemyLevel;
   const enemyBase = getBaseHp(enemyClass);
-  const enemyMaxHp = enemyBase + (enemyLevel * 50);
+  const enemyMaxHp = enemyBase + (enemyLevel * 100);
   
   enemy = {
     class: enemyClass,
