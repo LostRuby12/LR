@@ -2471,7 +2471,7 @@ const TRANSCEND_WEAPON_NAMES = Object.freeze({
 
 const MAGE_TRANSCEND_WEAPONS = Object.freeze({
   11: Object.freeze({ name: '고대의 전설', atk: 65, seal: 0.05, curse: 0.15, desc: '봉인 5% · 저주 15%' }),
-  12: Object.freeze({ name: '신 전설의 시작', atk: 75, mythicStart: true, desc: '스킬 「신화의 시작」 · 자신의 2번째 턴부터 사용 · 사용 시 공격력 +15% 누적 · 사용 후 2턴 충전' }),
+  12: Object.freeze({ name: '신 전설의 시작', atk: 75, mythicStart: true, desc: '스킬 「신화의 시작」 · 자신의 2턴 경과 후 사용 · 사용 시 공격력 +15% 누적 · 사용 후 2턴 충전' }),
   13: Object.freeze({ name: '파멸의 징조', atk: 110, omenChance: 0.30, desc: '패시브: 자신의 턴마다 30% 징조 부여 · 다음 자신의 턴에 공격력 150% 추가 공격' }),
   14: Object.freeze({ name: '파멸의 노래', atk: 35, requiem: true, desc: '스킬 「레퀴엠」 · 4턴마다 사용 · 상대 최대 체력 30% 피해' }),
   15: Object.freeze({ name: '공허균열의 지팡이', atk: 140, rift: 0.40, desc: '균열 40% · 공격 데미지 2배 · 보호막/정화 무시' }),
@@ -4270,7 +4270,7 @@ function resetMageTranscendBattleState() {
   mage19RewindCharges = 0;
   mage20SkillUsed = false;
   if (playerClass === 'mage') {
-    if (level === 12) mageSkillNextReadyTurn = 2;
+    if (level === 12) mageSkillNextReadyTurn = 3;
     else if (level === 14) mageSkillNextReadyTurn = 4;
     else if (level === 17) mageSkillNextReadyTurn = 3;
     else if (level === 18) mageSkillNextReadyTurn = 7;
