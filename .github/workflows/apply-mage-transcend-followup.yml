@@ -1,0 +1,66 @@
+name: Apply mage transcend follow-up
+on:
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mage-transcend-11-20
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Apply follow-up
+        run: python tools/patch_mage_transcend_followup.py
+      - name: Check inline JavaScript syntax
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path('index.html').read_text(encoding='utf-8')
+          blocks=re.findall(r'<script(?:\s[^>]*)?>([\s\S]*?)</script>',s)
+          Path('/tmp/game.js').write_text([b for b in blocks if b.strip()][-1],encoding='utf-8')
+          PY
+          node --check /tmp/game.js
+      - name: Validate follow-up semantics
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          s=Path('index.html').read_text(encoding='utf-8')
+          checks={
+            'auto guard':'playerAttackLock || rtActive || autoMode',
+            'rift nullify':'균열이 능력 무효에 막혔다',
+            'creation lock':'enemy.creationLocked = true',
+            'creation hp':'const rebuiltMaxHp = getBaseHp(enemy.class) + newLv * 100',
+            'creation shield':'enemy.creationLocked\n        ? (enemy.weapon || {})',
+            'creation awaken':'enemy && enemy.creationLocked ? (enemy.weapon || {})',
+            'skill button':'id="mage-skill-btn"',
+            'life spring':'mage18NormalImmuneEnemyTurns = 2',
+            'rewind':'mage19RewindCharges--',
+            'annihilation':'endBattle(true, \'만물의 소멸\')'
+          }
+          missing=[k for k,v in checks.items() if v not in s]
+          if missing: raise SystemExit('missing: '+', '.join(missing))
+          # HTML ID duplicate check
+          import re
+          ids=re.findall(r'\bid="([^"]+)"',s)
+          dup=sorted({x for x in ids if ids.count(x)>1})
+          if dup: raise SystemExit('duplicate ids: '+', '.join(dup))
+          print('follow-up checks passed')
+          PY
+      - name: Commit updated game
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if git diff --cached --quiet; then
+            echo "No index changes"
+          else
+            git commit -m "Harden mage transcend skill interactions"
+            git push origin HEAD:mage-transcend-11-20
+          fi
