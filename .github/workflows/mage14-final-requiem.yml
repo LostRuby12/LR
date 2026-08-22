@@ -1,0 +1,45 @@
+name: Apply Mage 14 Final Requiem
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/mage14-final-requiem.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply patch
+        run: python tools/patch-mage14-final-requiem.py
+      - name: Check inline JavaScript syntax
+        run: |
+          python - <<'PY'
+          import re
+          from pathlib import Path
+          s = Path('index.html').read_text(encoding='utf-8')
+          scripts = re.findall(r'<script(?:[^>]*)>(.*?)</script>', s, flags=re.S)
+          inline = '\n'.join(x for x in scripts if x.strip())
+          Path('/tmp/lr-app.js').write_text(inline, encoding='utf-8')
+          PY
+          node --check /tmp/lr-app.js
+      - name: Verify Mage 14 changes
+        run: |
+          grep -F "상대 최대 체력 20% 피해 · 사망 후 최후의 레퀴엠 1회" index.html
+          grep -F "function offerMage14DeathRequiem" index.html
+          grep -F "async function useMage14DeathRequiem" index.html
+          grep -F "최후의 레퀴엠 후 패배" index.html
+      - name: Commit game update and remove temporary files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git rm tools/patch-mage14-final-requiem.py .github/workflows/mage14-final-requiem.yml
+          git commit -m "Update Mage +14 Requiem"
+          git push
