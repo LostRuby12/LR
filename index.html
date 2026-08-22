@@ -754,16 +754,13 @@ const STAFF = [
 
 // 해금 직업 무기
 const ASSASSIN = [
-  { name: "녹슨 단검", atk: 8, desc: "" },
-  { name: "그림자 단검", atk: 12, lifesteal: 0.12, desc: "흡혈 12%" },
-  { name: "독니", atk: 11, fire: true, fireRate: 0.25, desc: "25% 독(화염 효과)" },
-  { name: "침묵의 칼", atk: 14, paralyze: 0.22, desc: "마비 22%" },
-  { name: "암살 단검", atk: 18, extra: 25, extraRate: 0.15, desc: "15% 추가 25뎀" },
-  { name: "피의 계약", atk: 16, corrupt: 0.25, desc: "25% 부패" },
-  { name: "처형자의 칼", atk: 28, instant: 0.08, desc: "즉사 8%" },
-  { name: "밤의 장막", atk: 22, dodge: 0.20, nullify: 0.15, desc: "피격 20%회피 · 15%무효" },
-  { name: "심연의 송곳", atk: 32, halfkill: 0.12, absorb: 0.04, desc: "절반삭제 12% · 흡수4%" },
-  { name: "사신의 낫", atk: 38, instant: 0.10, revive: true, desc: "즉사10% · 부활1회" }
+  { name: "암살 단검", atk: 15, desc: "" },
+  { name: "침묵의 검", atk: 22, paralyze: 0.10, desc: "마비 10%" },
+  { name: "독사의 꼬리", atk: 44, desc: "" },
+  { name: "이도류", atk: 77, double: 0.30, fateSealSkill: true, desc: "이중 공격 30% · 자신의 5번째 턴부터 운명봉인 1회(150 피해 + 봉인30%)" },
+  { name: "다르킨의 유혈검", atk: 160, bleed: true, bloodDominion: true, bloodMagic: 30, immortal: true, desc: "출혈(상대 턴마다 현재HP 2%) · 혈마법 매턴 +30 · HP10%↓ 공격 시 피의 지배(봉인) · 불멸" },
+  { name: "그림자의 장막", atk: 130, shadowCurtain: 0.35, shadowAssassination: 0.35, shadowEscape: true, desc: "일반공격+부가능력 35% 회피 · 회피 후 다음 공격 +35% · 치명 공격 1회 무시 후 최대HP 50% 회복(즉사 제외)" },
+  { name: "사신의 낫", atk: 0, reaper: true, deathHarvestSkill: true, deathDelay: true, desc: "자신의 턴마다 10% 즉사 + 현재HP 10% 자해 · 죽음의 유예 · 7번째 턴부터 죽음의 수확(절대즉사)" }
 ];
 const PRIEST = [
   { name: "나무 십자가", atk: 6, desc: "" },
@@ -869,6 +866,16 @@ let sword17DeathEyeAttacksLeft = 0;
 let sword18LastStandLeft = 0;
 let sword19RevivesLeft = 0;
 let sword20SkillUsed = false;
+
+// 암살자 +4~+7 전투 상태
+let assassinFateSealUsed = false;
+let assassinEnemyBleeding = false;   // 상대에게 걸린 출혈
+let assassinPlayerBleeding = false;  // 플레이어에게 걸린 출혈
+let assassinShadowAssassinationReady = false;
+let assassinShadowEscapeUsed = false;
+let assassinDeathHarvestUsed = false;
+let assassinDeathDelayActive = false;
+let assassinDeathDelayTurns = 0;
 
 // 이벤트(구 보스전)
 let gameMode = 'normal'; // 'normal' | 'boss' | 'raid'
@@ -1058,10 +1065,17 @@ let shopBuff = { extraChances: 0, bonusHp: 0 };
 function getBaseHp(cls) {
   if (cls === 'sword') return 250;
   if (cls === 'mage') return 150;
-  if (cls === 'assassin') return 180;
+  if (cls === 'assassin') return 120;
   if (cls === 'priest') return 200;
   if (cls === 'archer') return 170;
   return 150;
+}
+
+function getHpPerEnhance(cls) {
+  return cls === 'assassin' ? 50 : 100;
+}
+function getMaxHpForClassLevel(cls, lv) {
+  return getBaseHp(cls) + Math.max(0, Number(lv) || 0) * getHpPerEnhance(cls);
 }
 
 const SHOP_ITEMS = [
@@ -2529,7 +2543,7 @@ function getWeapon(cls, lv, awakened, awakenType) {
     const t = SWORD_TRANSCEND_WEAPONS[Math.min(20, Math.max(11, lv))];
     return Object.assign({}, t);
   }
-  const weapon = Object.assign({}, list[Math.min(lv - 1, 9)]);
+  const weapon = Object.assign({}, list[Math.min(Math.max(0, lv - 1), list.length - 1)]);
   return weapon;
 }
 
@@ -2726,6 +2740,11 @@ function updateStatusIcons() {
   if (playerClass === 'sword' && level === 17 && sword17DeathEyeActive) pIcons.push(`👁️마검의눈${sword17DeathEyeAttacksLeft}`);
   if (playerClass === 'sword' && level === 18 && sword18LastStandLeft > 0) pIcons.push(`⚔️저항x${sword18LastStandLeft}`);
   if (playerClass === 'sword' && level === 19) pIcons.push(`♾️불멸 · 부활x${sword19RevivesLeft}`);
+  if (playerClass === 'assassin' && level === 5) pIcons.push('🩸혈마법 · ♾️불멸');
+  if (playerClass === 'assassin' && level === 6 && assassinShadowAssassinationReady) pIcons.push('🌑그림자암살+35%');
+  if (playerClass === 'assassin' && level === 7 && assassinDeathDelayActive) pIcons.push(`☠️죽음유예${assassinDeathDelayTurns}`);
+  if (assassinPlayerBleeding) pIcons.push('🩸출혈');
+  if (assassinEnemyBleeding) eIcons.push('🩸출혈');
   if ($('p-status')) $('p-status').textContent = pIcons.join(' ');
 
   const eIcons = [];
@@ -2744,6 +2763,10 @@ function updateStatusIcons() {
 }
 
 function getSuccessRate(lv) {
+  if (playerClass === 'assassin') {
+    const assassinRates = [100, 80, 75, 50, 45, 25, 10];
+    return assassinRates[Math.min(Math.max(0, lv), assassinRates.length - 1)];
+  }
   // +1~+10 기존 확률, +11~+20은 보스전 전용 초월 강화 확률
   const rates = [100, 98, 80, 75, 65, 50, 45, 30, 25, 15, 15, 15, 15, 15, 10, 10, 10, 10, 5, 5];
   return rates[Math.min(Math.max(0, lv), rates.length - 1)];
@@ -3024,7 +3047,10 @@ async function tryPlayerBossWeaponSwitch() {
 
 
 function bossIsUndying() {
-  return !!(gameMode === 'boss' && enemy && (enemy.undying === true || enemy.name === '다르킨의 낫'));
+  return !!(enemy && (
+    (gameMode === 'boss' && (enemy.undying === true || enemy.name === '다르킨의 낫')) ||
+    (enemy.class === 'assassin' && enemy.level === 5)
+  ));
 }
 
 /** 불사: 일반 즉사계열을 1 피해로 바꾼다. 종언·소멸·봉인은 이 함수를 호출하지 않고 관통한다. */
@@ -3041,7 +3067,7 @@ async function applyBossUndying(sourceLabel) {
 }
 
 function playerHasImmortality() {
-  return playerClass === 'sword' && level === 19;
+  return (playerClass === 'sword' && level === 19) || (playerClass === 'assassin' && level === 5);
 }
 
 /** 무라마사의 불멸: 일반 즉사계열을 1 피해로 바꾼다. */
@@ -3187,8 +3213,8 @@ const RT_ALLOWED_CLASSES = new Set(['sword', 'mage', 'assassin', 'priest', 'arch
 function rtNormalizeBuild(data) {
   const cls = RT_ALLOWED_CLASSES.has(data && data.cls) ? data.cls : 'sword';
   const lvRaw = Number(data && data.lv);
-  const lv = clamp(Number.isFinite(lvRaw) ? Math.floor(lvRaw) : 0, 0, 10);
-  const maxHpSafe = getBaseHp(cls) + lv * 100;
+  const lv = clamp(Number.isFinite(lvRaw) ? Math.floor(lvRaw) : 0, 0, cls === 'assassin' ? 7 : 10);
+  const maxHpSafe = getMaxHpForClassLevel(cls, lv);
   const candidateNick = cleanNickname(String((data && data.nick) || '상대'));
   const safeNick = validateNickname(candidateNick) ? '상대' : candidateNick;
   return {
@@ -3512,7 +3538,7 @@ function rtSubmitBuild() {
   if (level === 0 && !confirm('강화 0으로 준비할까요?')) return;
   const base = getBaseHp(playerClass);
   // 최종 체력 확정
-  maxHp = base + level * 100;
+  maxHp = getMaxHpForClassLevel(playerClass, level);
   hp = maxHp;
   const build = {
     type: 'ready',
@@ -3606,7 +3632,7 @@ function rtBeginBattle(iAmFirst) {
   resetMageTranscendBattleState();
   // HP from enhance already set
   if (!maxHp || maxHp <= 0) {
-    maxHp = (getBaseHp(playerClass)) + level * 100;
+    maxHp = getMaxHpForClassLevel(playerClass, level);
     hp = maxHp;
   }
 
@@ -3879,6 +3905,7 @@ function updateEnhanceUI() {
 }
 
 function getEnhanceMaxLevel() {
+  if (playerClass === 'assassin') return 7;
   if (pendingRaidBoss && selectedRaidBossId === 'fallen_god' && playerClass === 'sword') return 20;
   if (pendingRaidBoss && selectedRaidBossId === 'ancient_mage' && playerClass === 'mage') return 20;
   return 10;
@@ -3937,7 +3964,7 @@ async function doEnhance(type) {
     if (success) {
       level = Math.min(maxEnhanceLevel, level + 1);
       const base = getBaseHp(playerClass);
-      maxHp = base + level * 100;
+      maxHp = getMaxHpForClassLevel(playerClass, level);
       hp = maxHp;
       showResult(true, `+${level} 성공!`);
       await sleep(700);
@@ -3946,7 +3973,7 @@ async function doEnhance(type) {
       if (level >= 5 && rand() < 0.20) {
         level = Math.max(0, level - 1);
         const base = getBaseHp(playerClass);
-        maxHp = base + level * 100;
+        maxHp = getMaxHpForClassLevel(playerClass, level);
         hp = Math.min(hp, maxHp);
         showResult(false, `실패... 등급 하락! (+${level})`);
       } else {
@@ -4040,7 +4067,7 @@ function goBattle() {
   let enemyLevel = clamp(baseLv + offset, 1, 10);
   enemyPreviewLevel = enemyLevel;
   const enemyBase = getBaseHp(enemyClass);
-  const enemyMaxHp = enemyBase + (enemyLevel * 100);
+  const enemyMaxHp = getMaxHpForClassLevel(enemyClass, enemyLevel);
   
   enemy = {
     class: enemyClass,
@@ -4344,6 +4371,14 @@ function resetMageTranscendBattleState() {
   sword18LastStandLeft = (playerClass === 'sword' && level === 18) ? 2 : 0;
   sword19RevivesLeft = (playerClass === 'sword' && level === 19) ? 3 : 0;
   sword20SkillUsed = false;
+  assassinFateSealUsed = false;
+  assassinEnemyBleeding = false;
+  assassinPlayerBleeding = false;
+  assassinShadowAssassinationReady = false;
+  assassinShadowEscapeUsed = false;
+  assassinDeathHarvestUsed = false;
+  assassinDeathDelayActive = false;
+  assassinDeathDelayTurns = 0;
   if (playerClass === 'mage') {
     if (level === 12) mageSkillNextReadyTurn = 3;
     else if (level === 14) mageSkillNextReadyTurn = 4;
@@ -4355,6 +4390,10 @@ function resetMageTranscendBattleState() {
     if (level === 14) mageSkillNextReadyTurn = 4;
     else if (level === 16) mageSkillNextReadyTurn = 3;
     else if (level === 20) mageSkillNextReadyTurn = 2;
+    else mageSkillNextReadyTurn = 0;
+  } else if (playerClass === 'assassin') {
+    if (level === 4) mageSkillNextReadyTurn = 5;
+    else if (level === 7) mageSkillNextReadyTurn = 7;
     else mageSkillNextReadyTurn = 0;
   } else {
     mageSkillNextReadyTurn = 0;
@@ -4371,6 +4410,11 @@ function mageActiveSkillInfo() {
     if (level === 17) return { name: '몰락의 밤', cooldown: 3, icon: '🌑' };
     if (level === 18) return { name: '생명의 샘', cooldown: 7, icon: '💧' };
     if (level === 20) return { name: '천지의 선택', cooldown: 0, icon: '🌌' };
+    return null;
+  }
+  if (playerClass === 'assassin') {
+    if (level === 4 && !assassinFateSealUsed) return { name: '운명봉인', cooldown: 0, icon: '🔒', unlockTurn: 5 };
+    if (level === 7 && !assassinDeathHarvestUsed) return { name: '죽음의 수확', cooldown: 0, icon: '☠️', unlockTurn: 7 };
     return null;
   }
   if (playerClass === 'sword') {
@@ -4393,6 +4437,8 @@ function canUseMageSkillNow() {
   if (playerParalyzed || playerSealed || playerCursed > 0) return false;
   if (playerClass === 'mage' && level === 20 && mage20SkillUsed) return false;
   if (playerClass === 'sword' && level === 20 && sword20SkillUsed) return false;
+  if (playerClass === 'assassin' && level === 4 && assassinFateSealUsed) return false;
+  if (playerClass === 'assassin' && level === 7 && assassinDeathHarvestUsed) return false;
   const upcomingTurn = playerTurnCount + 1;
   if (info.unlockTurn != null) return upcomingTurn >= info.unlockTurn;
   return upcomingTurn >= mageSkillNextReadyTurn;
@@ -4421,7 +4467,8 @@ function updateMageSkillButton() {
   btn.textContent = `${info.icon} 스킬: ${info.name}`;
   const upcomingTurn = playerTurnCount + 1;
   let status = '';
-  if ((playerClass === 'mage' && level === 20 && mage20SkillUsed) || (playerClass === 'sword' && level === 20 && sword20SkillUsed)) {
+  if ((playerClass === 'mage' && level === 20 && mage20SkillUsed) || (playerClass === 'sword' && level === 20 && sword20SkillUsed) ||
+      (playerClass === 'assassin' && level === 4 && assassinFateSealUsed) || (playerClass === 'assassin' && level === 7 && assassinDeathHarvestUsed)) {
     status = '전투당 1회 사용 완료';
   } else if (info.unlockTurn != null && upcomingTurn < info.unlockTurn) {
     status = `자신의 ${info.unlockTurn}번째 턴부터 1회 사용 가능`;
@@ -4546,6 +4593,73 @@ function trySwordTranscendSurvival(reason) {
   return false;
 }
 
+async function assassinDirectDamage(amount, sourceLabel) {
+  const beforeHp = hp;
+  const beforeShield = playerShield;
+  const beforeShieldUsed = playerShieldUsed;
+  const beforeFlags = Object.assign({}, battleFlags || {});
+  const actual = dmgPlayer(amount);
+  if (playerClass === 'assassin' && level === 6 && !assassinShadowEscapeUsed && hp <= 0) {
+    hp = beforeHp;
+    playerShield = beforeShield;
+    playerShieldUsed = beforeShieldUsed;
+    battleFlags = beforeFlags;
+    assassinShadowEscapeUsed = true;
+    const heal = Math.max(1, Math.floor(maxHp * 0.50));
+    hp = Math.min(maxHp, hp + heal);
+    await showAbility('🌑 그림자 회피!', `${sourceLabel || '치명 공격'}을 완전히 무시하고 최대 체력의 50%를 회복!`);
+    addLog('ability', `그림자 회피: 치명 공격 무시 · HP +${heal} → ${hp}`);
+    updateHPBars();
+    updateStatusIcons();
+    return 0;
+  }
+  return actual;
+}
+
+function tryAssassinDeathDelay(reason) {
+  if (playerClass !== 'assassin' || level !== 7 || hp > 0) return false;
+  const r = String(reason || '');
+  if (/강제 종료|항복|연결|봉인|종언|소멸|죽음의 수확|죽음의 유예 종료/.test(r)) return false;
+  if (!assassinDeathDelayActive) {
+    assassinDeathDelayActive = true;
+    assassinDeathDelayTurns = 2;
+    addLog('ability', '☠️ 죽음의 유예! 죽음을 다다음 자신의 턴까지 미룬다.');
+    showAbility('☠️ 죽음의 유예', 'HP 1로 생존. 다음 자신의 턴까지 행동 가능하며, 다다음 자신의 턴 시작에 미뤄둔 죽음이 적용됩니다.');
+  }
+  hp = 1;
+  battleEnded = false;
+  autoMode = false;
+  playerAttackLock = false;
+  try {
+    const atk = $('atk-btn');
+    if (atk) { atk.style.display = 'block'; atk.disabled = false; }
+  } catch (e) {}
+  updateHPBars();
+  updateStatusIcons();
+  updateMageSkillButton();
+  return true;
+}
+
+async function resolveAssassinSeal(label) {
+  if (!enemy) return true;
+  enemy.hp = 0;
+  enemy.undying = false;
+  enemy.revived = true;       // 봉인은 일반 부활을 관통
+  enemyLastStandUsed = true;  // 최후의 저항도 관통
+  await playFx('seal');
+  await showAbility('🔒 ' + label, '봉인 성공! 불멸을 무시하고 즉사시켰다.');
+  addLog('ability', `${label}: 봉인 · 불멸 관통`);
+  updateHPBars();
+  if (await tryBossTransform()) {
+    updateHPBars();
+    await sleep(350);
+    await enemyAttack();
+    return true;
+  }
+  endBattle(true, label + ' 봉인');
+  return true;
+}
+
 async function beginSwordTranscendTurn() {
   if (playerClass !== 'sword' || level < 11 || level > 20 || !enemy) return false;
   if (level === 16) sword16ReflectActive = false;
@@ -4633,7 +4747,73 @@ async function finishSword17DeathEyeAttack() {
 }
 
 async function beginPlayerActionTurn() {
+  // 사신의 낫 「죽음의 유예」: 치명타를 받은 뒤 다음 내 턴은 행동 가능,
+  // 그 다음 내 턴 시작 시 미뤄둔 죽음이 적용된다.
+  if (playerClass === 'assassin' && level === 7 && assassinDeathDelayActive) {
+    assassinDeathDelayTurns--;
+    if (assassinDeathDelayTurns <= 0) {
+      assassinDeathDelayActive = false;
+      hp = 0;
+      updateHPBars();
+      await showAbility('☠️ 죽음의 유예 종료', '미뤄 두었던 모든 죽음이 적용되었다.');
+      endBattle(false, '죽음의 유예 종료');
+      return true;
+    }
+  }
+
   playerTurnCount++;
+
+  // 플레이어에게 걸린 유혈검 출혈은 자신의 턴 시작마다 현재 HP 2%.
+  if (assassinPlayerBleeding && hp > 0) {
+    const raw = Math.max(1, Math.floor(hp * 0.02));
+    const actual = dmgPlayer(raw);
+    await showAbility('🩸 출혈', `현재 체력 2% · ${actual} 피해`);
+    addLog('ability', `출혈: ${actual} 피해`);
+    updateHPBars();
+    if (hp <= 0) {
+      endBattle(false, '출혈');
+      if (battleEnded) return true;
+    }
+  }
+
+  if (playerClass === 'assassin' && level === 5) {
+    const baseHeal = 30;
+    const actualHeal = healAmount(baseHeal, true);
+    const before = hp;
+    hp = Math.min(maxHp, hp + actualHeal);
+    const healed = hp - before;
+    if (healed > 0) addLog('ability', `🩸 혈마법: HP +${healed}${actualHeal < baseHeal ? ' (화염 반감)' : ''}`);
+  }
+
+  if (playerClass === 'assassin' && level === 7 && enemy && enemy.hp > 0) {
+    if (rand() < 0.10) {
+      if (await applyBossUndying('사신의 낫')) {
+        addLog('ability', '사신의 낫 10% 즉사 → 불멸로 1 피해');
+      } else {
+        enemy.hp = 0;
+        await playFx('kill');
+        await showAbility('💀 사신의 낫', '턴 시작 10% 즉사 발동!');
+        addLog('ability', '사신의 낫: 10% 즉사 성공');
+        updateHPBars();
+        if (await resolveEnemyDeathFromMageSkill('사신의 낫 즉사')) return true;
+      }
+    }
+    if (hp > 0) {
+      if (assassinDeathDelayActive && hp <= 1) {
+        hp = 1; // 유예 기간의 행동 턴은 HP1 보장
+        addLog('ability', '☠️ 죽음의 유예: 사신의 자해를 HP 1로 버팀');
+      } else {
+        const selfRaw = Math.max(1, Math.floor(hp * 0.10));
+        const selfActual = dmgPlayer(selfRaw);
+        addLog('ability', `☠️ 사신의 대가: 현재HP 10% · ${selfActual} 자해`);
+        updateHPBars();
+        if (hp <= 0) {
+          endBattle(false, '사신의 낫 자해');
+          if (battleEnded) return true;
+        }
+      }
+    }
+  }
 
   if (await beginSwordTranscendTurn()) return true;
 
@@ -4757,7 +4937,7 @@ async function applyMage20Creation() {
     enemy.atk = newAtk;
     enemy.weapon = newWeapon;
     enemy.creationLocked = true;
-    const rebuiltMaxHp = getBaseHp(enemy.class) + newLv * 100;
+    const rebuiltMaxHp = getMaxHpForClassLevel(enemy.class, newLv);
     enemy.maxHp = Math.max(1, rebuiltMaxHp);
     enemy.hp = clamp(Number(enemy.hp) || 0, 0, enemy.maxHp);
     enemyAwakened = false;
@@ -4868,6 +5048,39 @@ async function useMageSkill() {
     if (endedByPassive) return;
     const turnUsed = playerTurnCount;
     mageSkillNextReadyTurn = turnUsed + info.cooldown;
+
+    if (playerClass === 'assassin') {
+      if (level === 4) {
+        assassinFateSealUsed = true;
+        mageSkillNextReadyTurn = 999999;
+        const actual = dmgEnemy(150);
+        await showAbility('🔒 운명봉인', `150 피해! (실피해 ${actual}) · 봉인 30% 판정`);
+        addLog('ability', `운명봉인: ${actual} 피해`);
+        updateHPBars();
+        if (enemy.hp > 0 && rand() < 0.30) {
+          await resolveAssassinSeal('운명봉인');
+          return;
+        }
+        if (await resolveEnemyDeathFromMageSkill('운명봉인')) return;
+        updateMageSkillButton();
+        await enemyAttack();
+        return;
+      }
+      if (level === 7) {
+        assassinDeathHarvestUsed = true;
+        mageSkillNextReadyTurn = 999999;
+        enemy.hp = 0;
+        enemy.undying = false;
+        enemy.revived = true;
+        enemyLastStandUsed = true;
+        await playFx('kill');
+        await showAbility('☠️ 죽음의 수확', '확정 절대즉사. 불멸·부활·최후의 저항·보호막·회피를 모두 관통한다.');
+        addLog('ability', '죽음의 수확 — 절대즉사');
+        updateHPBars();
+        endBattle(true, '죽음의 수확');
+        return;
+      }
+    }
 
     if (playerClass === 'sword') {
       if (level === 12 && info.name === '참살쇄도') {
@@ -5108,6 +5321,14 @@ async function playerAttack() {
     fallSelf = true;
     await showAbility('😈 타락 발동!', '내 공격과 능력이 나에게로!');
     addLog('ability', '타락: 공격/능력 자기 자신에게');
+  }
+  if (playerClass === 'assassin' && level === 6 && assassinShadowAssassinationReady && !fallSelf) {
+    assassinShadowAssassinationReady = false;
+    dmg = Math.max(0, Math.round(dmg * 1.35));
+    logMsg = `그림자 암살! ${w.name} ${dmg} 데미지 (+35%)`;
+    await showAbility('🌑 그림자 암살', `장막 회피 후 다음 일반 공격 +35% · ${dmg} 피해`);
+    addLog('ability', `그림자 암살: 공격 데미지 +35% → ${dmg}`);
+    updateStatusIcons();
   }
 
   // 즉사/봉인/참격
@@ -5388,6 +5609,16 @@ async function playerAttack() {
     }
     } // boss ignore else
   }
+  if (playerClass === 'assassin' && level === 5 && !fallSelf && enemy && enemy.hp > 0 && dealtToEnemy > 0) {
+    assassinEnemyBleeding = true;
+    addLog('ability', '🩸 다르킨의 유혈검: 출혈 부여');
+    updateStatusIcons();
+    if (hp < maxHp * 0.10) {
+      await showAbility('🩸 피의 지배', '내 체력 10% 미만! 공격이 봉인으로 승격된다.');
+      await resolveAssassinSeal('피의 지배');
+      return;
+    }
+  }
   if (playerClass === 'sword' && level === 19 && !fallSelf && enemy && enemy.hp > 0 && dealtToEnemy > 0) {
     const burnRaw = Math.max(1, Math.floor(enemy.hp * 0.02));
     const burnActual = dmgEnemy(burnRaw);
@@ -5540,6 +5771,17 @@ async function playerAttack() {
 async function enemyAttack() {
   if (battleEnded) return;
   enemyTurnCount++;
+
+  if (assassinEnemyBleeding && enemy && enemy.hp > 0) {
+    const raw = Math.max(1, Math.floor(enemy.hp * 0.02));
+    const actual = dmgEnemy(raw);
+    await showAbility('🩸 출혈', `상대 현재 체력 2% · ${actual} 피해`);
+    addLog('ability', `유혈검 출혈: ${actual} 피해`);
+    updateHPBars();
+    updateStatusIcons();
+    if (await resolveEnemyDeathFromMageSkill('출혈')) return;
+  }
+
   mage18EnemyTurnNormalImmune = playerClass === 'mage' && level === 18 && mage18NormalImmuneEnemyTurns > 0;
   if (mage18EnemyTurnNormalImmune) mage18NormalImmuneEnemyTurns--;
   lastDamageTaken = 0;
@@ -5603,6 +5845,17 @@ async function enemyAttack() {
     let dmg = enemy.atk || 60;
     let usedSkill = false;
     let bossDoubleHit = false;
+    const assassinBossSkillTurn = (enemy.name === '다르킨의 낫' && bossAttackCount % 3 === 0) ||
+      (enemy.name === '그림자 암살자' && bossAttackCount % 3 === 0);
+    if (playerClass === 'assassin' && level === 6 && !assassinBossSkillTurn && rand() < 0.35) {
+      assassinShadowAssassinationReady = true;
+      await showAbility('🌑 그림자의 장막', '보스의 일반공격과 그 공격에 딸린 능력을 모두 회피! 그림자 암살 준비.');
+      addLog('ability', '그림자의 장막: 보스 일반공격 + 부가능력 35% 회피');
+      updateStatusIcons();
+      $('atk-btn').disabled = false;
+      if (autoMode) scheduleAutoAttack(400);
+      return;
+    }
 
     // 1) 능력(확률): 마비 등 — 항상 확률대로
     if (enemy.paralyze && rand() < enemy.paralyze) {
@@ -5662,11 +5915,11 @@ async function enemyAttack() {
         await showAbility('💧 생명의 샘!', '상대의 일반 공격 데미지를 무시했다!');
         addLog('ability', `${enemy.name}의 일반 공격 무효`);
       } else {
-        actual = dmgPlayer(dmg);
+        actual = await assassinDirectDamage(dmg, usedSkill ? '보스 스킬' : '보스 공격');
         lastDamageTaken += actual;
         addLog('enemy', `${enemy.name}의 공격! ${dmg} 데미지`);
         if (bossDoubleHit) {
-          const actual2 = dmgPlayer(dmg);
+          const actual2 = await assassinDirectDamage(dmg, '보스 이중 공격');
           lastDamageTaken += actual2;
           actual += actual2;
           addLog('enemy', `이중 2타! ${dmg}`);
@@ -5748,6 +6001,12 @@ async function enemyAttack() {
   let w = enemyMyW;
   let abilityW = enemyMyW;
   let enemyMirroringThisTurn = false;
+  if (enemy.class === 'assassin' && enemy.level === 5 && enemy.hp > 0) {
+    const baseHeal = 30;
+    const actualHeal = healAmount(baseHeal, false);
+    enemy.hp = Math.min(enemy.maxHp, enemy.hp + actualHeal);
+    addLog('ability', `적 혈마법: HP +${actualHeal}`);
+  }
   if (enemyMirror) {
     enemyMirror = false;
     enemyMirroringThisTurn = true;
@@ -5776,6 +6035,26 @@ async function enemyAttack() {
     enemyFall = false;
     enemyFallSelf = true;
     await showAbility('😈 타락 발동!', '적 공격과 능력이 적에게로!');
+  }
+
+  if (playerClass === 'assassin' && level === 6 && !enemyFallSelf && rand() < 0.35) {
+    assassinShadowAssassinationReady = true;
+    await showAbility('🌑 그림자의 장막', '일반공격과 그 공격에 딸린 모든 능력을 회피! 그림자 암살 준비.');
+    addLog('ability', '그림자의 장막: 일반공격 + 부가능력 35% 회피');
+    // 이미 걸려 있던 화염은 장막과 무관하게 정상적으로 진행
+    if (enemy.fireTurns && enemy.fireTurns > 0) {
+      const fDmg = Math.max(1, Math.floor(Math.max(1, hp) * 0.02));
+      const actualF = dmgPlayer(fDmg);
+      lastDamageTaken += actualF;
+      enemy.fireTurns--;
+      addLog('ability', `화염 ${actualF} (남은 ${enemy.fireTurns})`);
+      if (hp <= 0) { endBattle(false, '화염'); return; }
+    }
+    updateHPBars();
+    updateStatusIcons();
+    $('atk-btn').disabled = false;
+    if (autoMode) scheduleAutoAttack(400);
+    return;
   }
 
   if (canAbility && abilityW.instant) {
@@ -6062,7 +6341,7 @@ async function enemyAttack() {
       await showAbility('💧 생명의 샘!', '상대의 일반 공격 데미지를 무시했다!');
       addLog('ability', '생명의 샘: 일반 공격 무효');
     } else {
-      actual = dmgPlayer(dmg);
+      actual = await assassinDirectDamage(dmg, '일반공격');
       lastDamageTaken += actual;
       addLog('enemy', logMsg);
     }
@@ -6076,7 +6355,7 @@ async function enemyAttack() {
       if (mage18EnemyTurnNormalImmune) {
         addLog('ability', '생명의 샘: 이중 공격 2타 무효');
       } else {
-        actual2 = dmgPlayer(dmg);
+        actual2 = await assassinDirectDamage(dmg, '이중 공격');
         lastDamageTaken += actual2;
         addLog('enemy', `이중 2타! ${dmg}`);
       }
@@ -6087,6 +6366,18 @@ async function enemyAttack() {
       }
     }
   }
+  if (enemy.class === 'assassin' && enemy.level === 5 && lastDamageTaken > 0 && hp > 0) {
+    assassinPlayerBleeding = true;
+    addLog('ability', '🩸 적 다르킨의 유혈검: 출혈 부여');
+    if (enemy.hp < enemy.maxHp * 0.10) {
+      hp = 0;
+      await showAbility('🩸 적의 피의 지배', '적 체력 10% 미만 공격 → 봉인! 불멸 관통.');
+      endBattle(false, '봉인');
+      return;
+    }
+    updateStatusIcons();
+  }
+
   // 정화 대기는 실제 상태이상/부패를 막았을 때만 소모된다.
 
   // 적 화염 도트 (플레이어에게 걸린 화염)
@@ -6258,6 +6549,7 @@ function forceExitBattle() {
 }
 
 function endBattle(win, reason) {
+  if (!win && tryAssassinDeathDelay(reason)) return;
   if (!win && trySwordTranscendSurvival(reason)) return;
   if (!win && tryMage19CheckpointRevive(reason)) return;
   if (!win && offerMage14DeathRequiem(reason)) return;
