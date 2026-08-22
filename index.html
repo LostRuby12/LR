@@ -5677,6 +5677,7 @@ async function enemyAttack() {
         enemy.hp = Math.min(enemy.maxHp, enemy.hp + heal);
         await showAbility('🩸 흡혈!', `보스 체력 +${heal}`);
       }
+      if (sword16ReflectActive) sword16ReflectActive = false;
     } else {
       addLog('enemy', `${enemy.name}의 공격이 무시됨`);
     }
@@ -6039,6 +6040,7 @@ async function enemyAttack() {
         await showAbility('☠️ 타락 부패!', `적에게 부패 ${cDmg}!`);
       }
     }
+    if (sword16ReflectActive) sword16ReflectActive = false;
   } else if (!dodged) {
     const hasCorrupt = (typeof w.corrupt === 'boolean' && w.corrupt) || (typeof w.corrupt === 'number' && rand() < w.corrupt);
     if (hasCorrupt) {
@@ -6115,7 +6117,7 @@ async function enemyAttack() {
     lastDamageTaken = 0;
   }
 
-  if (enemyPurifyNext) enemyPurifyNext = false;
+  // 적 정화 대기도 실제 상태이상/부패를 막았을 때만 소모된다.
 
   if (enemyAwakened && enemyAwakenType === 'excalibur') {
     enemyExcalTurns--;
