@@ -5252,7 +5252,11 @@ async function playerAttack() {
     }
   }
   if (canAbility && !fallSelf && abilityW.fire && rand() < (abilityW.fireRate || 0.05)) {
-    if (hasNullify(false)) {
+    if (enemyPurifyNext) {
+      enemyPurifyNext = false;
+      await showAbility('✨ 적의 정화!', '화염이 무효화되었다!');
+      addLog('ability', '적 정화로 화염 무효');
+    } else if (hasNullify(false)) {
       await showAbility('💧 적의 능력 무효!', '화염이 막혔다!');
     } else {
       fireTurns = 2;
@@ -5262,6 +5266,10 @@ async function playerAttack() {
   if (canAbility && !fallSelf && abilityW.paralyze && rand() < abilityW.paralyze) {
     if (enemyShield > 0) {
       await showAbility('🛡️ 보호막!', '상태이상이 막혔다!');
+    } else if (enemyPurifyNext) {
+      enemyPurifyNext = false;
+      await showAbility('✨ 적의 정화!', '마비가 무효화되었다!');
+      addLog('ability', '적 정화로 마비 무효');
     } else if (hasNullify(false)) {
       await showAbility('💧 적의 능력 무효!', '마비가 막혔다!');
     } else {
@@ -5272,6 +5280,10 @@ async function playerAttack() {
   if (canAbility && !fallSelf && abilityW.fall && rand() < abilityW.fall) {
     if (enemyShield > 0) {
       await showAbility('🛡️ 보호막!', '상태이상이 막혔다!');
+    } else if (enemyPurifyNext) {
+      enemyPurifyNext = false;
+      await showAbility('✨ 적의 정화!', '타락이 무효화되었다!');
+      addLog('ability', '적 정화로 타락 무효');
     } else if (hasNullify(false)) {
       await showAbility('💧 적의 능력 무효!', '타락이 막혔다!');
     } else {
@@ -5282,6 +5294,10 @@ async function playerAttack() {
   if (canAbility && !fallSelf && abilityW.curse && rand() < abilityW.curse) {
     if (enemyShield > 0) {
       await showAbility('🛡️ 보호막!', '상태이상이 막혔다!');
+    } else if (enemyPurifyNext) {
+      enemyPurifyNext = false;
+      await showAbility('✨ 적의 정화!', '저주가 무효화되었다!');
+      addLog('ability', '적 정화로 저주 무효');
     } else if (hasNullify(false)) {
       await showAbility('💧 적의 능력 무효!', '저주가 막혔다!');
     } else if (enemyCursed >= 2) {
@@ -5590,7 +5606,11 @@ async function enemyAttack() {
 
     // 1) 능력(확률): 마비 등 — 항상 확률대로
     if (enemy.paralyze && rand() < enemy.paralyze) {
-      if (playerShield > 0) {
+      if (sword16ReflectActive) {
+        enemyParalyzed = true;
+        await showAbility('🌙 월광봉멸 반사!', '보스의 마비 효과까지 되돌려 보냈다!');
+        addLog('ability', '월광봉멸: 보스 마비 반사');
+      } else if (playerShield > 0) {
         await showAbility('🛡️ 보호막!', '마비 차단!');
       } else if (playerPurifyNext) {
         playerPurifyNext = false;
@@ -5657,6 +5677,7 @@ async function enemyAttack() {
         enemy.hp = Math.min(enemy.maxHp, enemy.hp + heal);
         await showAbility('🩸 흡혈!', `보스 체력 +${heal}`);
       }
+      if (sword16ReflectActive) sword16ReflectActive = false;
     } else {
       addLog('enemy', `${enemy.name}의 공격이 무시됨`);
     }
@@ -5762,7 +5783,17 @@ async function enemyAttack() {
     if (rand() < ikRate) {
       const isCham = abilityW.name === '세계를 가르는 검' || (abilityW.instantLow != null && abilityW.name !== '엑스칼리버');
       await playFx(isCham ? 'chamgyeok' : 'kill');
-      if (playerHasImmortality()) {
+      if (enemyFallSelf) {
+        enemy.hp = 0;
+        await showAbility('🌙 반사된 즉사!', '상대의 즉사 효과가 자신에게 되돌아갔다!');
+        addLog('ability', '월광봉멸/타락: 즉사 효과 반사');
+        updateHPBars();
+        if (await resolveEnemyDeathFromMageSkill('반사된 즉사')) return;
+        sword16ReflectActive = false;
+        $('atk-btn').disabled = false;
+        if (autoMode) scheduleAutoAttack(400);
+        return;
+      } else if (playerHasImmortality()) {
         await applyPlayerImmortality(isCham ? '참격' : '즉사');
         $('atk-btn').disabled = false;
         if (autoMode) scheduleAutoAttack(400);
@@ -5803,6 +5834,14 @@ async function enemyAttack() {
   }
   if (canAbility && abilityW.seal && rand() < abilityW.seal) {
     await playFx('seal');
+    if (enemyFallSelf) {
+      enemy.hp = 0;
+      await showAbility('🌙 반사된 봉인!', '상대의 봉인이 자신에게 되돌아갔다!');
+      addLog('ability', '월광봉멸/타락: 봉인 반사 · 즉사');
+      updateHPBars();
+      endBattle(true, '반사된 봉인');
+      return;
+    }
     await showAbility('🔒 적의 봉인!', '봉인 당했다!');
     hp = 0;
     if (playerAwakened && !playerLastStandUsed) {
@@ -5832,6 +5871,17 @@ async function enemyAttack() {
   }
   if (canAbility && abilityW.instantCond && enemy.hp < enemy.maxHp * 0.6 && rand() < abilityW.instantCond) {
     await playFx('supernova');
+    if (enemyFallSelf) {
+      enemy.hp = 0;
+      await showAbility('🌙 반사된 초신성!', '초신성 즉사가 공격자에게 되돌아갔다!');
+      addLog('ability', '월광봉멸/타락: 초신성 반사');
+      updateHPBars();
+      if (await resolveEnemyDeathFromMageSkill('반사된 초신성')) return;
+      sword16ReflectActive = false;
+      $('atk-btn').disabled = false;
+      if (autoMode) scheduleAutoAttack(400);
+      return;
+    }
     if (playerHasImmortality()) {
       await applyPlayerImmortality('초신성');
       $('atk-btn').disabled = false;
@@ -5869,26 +5919,28 @@ async function enemyAttack() {
   let enemyDoubleHit = false;
   if (canAbility && abilityW.double && rand() < abilityW.double) { enemyDoubleHit = true; logMsg = `적 이중 공격! ${dmg} x2`; await showAbility('⚡ 적의 이중 공격!', '공격 두 번!'); }
   if (canAbility && abilityW.extra && rand() < (abilityW.extraRate || 0)) { dmg += abilityW.extra; }
-  if (canAbility && abilityW.absorb) {
+  if (canAbility && !enemyFallSelf && abilityW.absorb) {
     const absorbAmt = Math.floor(Math.max(0, hp) * abilityW.absorb);
     const actual = dmgPlayer(absorbAmt);
     lastDamageTaken += actual;
     let heal = healAmount(actual, false);
     if (heal > 0) enemy.hp = Math.min(enemy.maxHp, enemy.hp + heal);
   }
-  if (canAbility && abilityW.halfkill && rand() < abilityW.halfkill) {
+  if (canAbility && !enemyFallSelf && abilityW.halfkill && rand() < abilityW.halfkill) {
     const half = Math.floor(Math.max(0, hp) * 0.5);
     const actual = dmgPlayer(half);
     lastDamageTaken += actual;
     await showAbility('🌑 적의 몰락의 밤!', `절반(${half}) 삭제!`);
   }
   if (canAbility && abilityW.purify && rand() < abilityW.purify) {
-    if (enemyFall || enemyCursed) {
-      enemyFall = false; enemyCursed = 0;
-      await showAbility('✨ 적의 정화!', '상태이상 제거');
+    const enemyHasStatus = enemyParalyzed || enemyFall || enemyCursed > 0 || enemySealed || fireTurns > 0;
+    if (enemyHasStatus) {
+      enemyParalyzed = false; enemyFall = false; enemyCursed = 0; enemySealed = false; fireTurns = 0;
+      await showAbility('✨ 적의 정화!', '걸려 있던 상태이상을 모두 제거했다!');
+      addLog('ability', '적 정화: 상태이상 제거');
     } else {
       enemyPurifyNext = true;
-      await showAbility('✨ 적의 정화!', '다음 내 능력 무시');
+      await showAbility('✨ 적의 정화!', '다음 상태이상·부패 1회를 무효화');
     }
   }
   if (canAbility && abilityW.heal) {
@@ -5900,6 +5952,7 @@ async function enemyAttack() {
     if (playerShield > 0) {
       await showAbility('🛡️ 보호막!', '상태이상이 막혔다!');
     } else if (playerPurifyNext) {
+      playerPurifyNext = false;
       await showAbility('✨ 정화 발동!', '적의 타락을 무효화했다!');
       addLog('ability', '정화로 타락 무효');
     } else if (hasNullify(true)) {
@@ -5913,6 +5966,7 @@ async function enemyAttack() {
     if (playerShield > 0) {
       await showAbility('🛡️ 보호막!', '상태이상이 막혔다!');
     } else if (playerPurifyNext) {
+      playerPurifyNext = false;
       await showAbility('✨ 정화 발동!', '적의 마비를 무효화했다!');
       addLog('ability', '정화로 마비 무효');
     } else if (hasNullify(true)) {
@@ -5922,18 +5976,23 @@ async function enemyAttack() {
       await showAbility('💫 적의 마비!', '다음 턴 스킵!');
     }
   }
-  if (canAbility && abilityW.fire && rand() < (abilityW.fireRate || 0.05)) {
-    if (hasNullify(true)) {
+  if (canAbility && !enemyFallSelf && abilityW.fire && rand() < (abilityW.fireRate || 0.05)) {
+    if (playerPurifyNext) {
+      playerPurifyNext = false;
+      await showAbility('✨ 정화 발동!', '적의 화염을 무효화했다!');
+      addLog('ability', '정화로 화염 무효');
+    } else if (hasNullify(true)) {
       await showAbility('💧 능력 무효!', '신의 눈물이 화염을 무효화!');
     } else {
       enemy.fireTurns = 2;
       await showAbility('🔥 적의 화염 부여!', '2턴 화염! (현재HP 2% + 회복 반감)');
     }
   }
-  if (canAbility && abilityW.curse && rand() < abilityW.curse) {
+  if (canAbility && !enemyFallSelf && abilityW.curse && rand() < abilityW.curse) {
     if (playerShield > 0) {
       await showAbility('🛡️ 보호막!', '상태이상이 막혔다!');
     } else if (playerPurifyNext) {
+      playerPurifyNext = false;
       await showAbility('✨ 정화 발동!', '적의 저주를 무효화했다!');
       addLog('ability', '정화로 저주 무효');
     } else if (hasNullify(true)) {
@@ -5944,6 +6003,12 @@ async function enemyAttack() {
       playerCursed++;
       await showAbility('☠️ 적의 저주!', `저주 ${playerCursed}중첩! 능력제한 · 뎀 ${Math.round((1-Math.pow(0.7,playerCursed))*100)}%↓`);
     }
+  }
+  if (canAbility && enemyFallSelf) {
+    if (abilityW.paralyze && rand() < abilityW.paralyze) { enemyParalyzed = true; addLog('ability', '반사: 적에게 마비'); }
+    if (abilityW.fall && rand() < abilityW.fall) { enemyFall = true; addLog('ability', '반사: 적에게 타락'); }
+    if (abilityW.fire && rand() < (abilityW.fireRate || 0.05)) { fireTurns = 2; addLog('ability', '반사: 적에게 화염'); }
+    if (abilityW.curse && rand() < abilityW.curse && enemyCursed < 2) { enemyCursed++; addLog('ability', `반사: 적에게 저주 ${enemyCursed}중첩`); }
   }
   if (canAbility && !enemyMirroringThisTurn && abilityW.mirror && rand() < abilityW.mirror) {
     enemyMirror = true;
@@ -5961,8 +6026,12 @@ async function enemyAttack() {
   }
 
   if (enemyFallSelf) {
-    dmgEnemy(dmg);
-    addLog('enemy', `타락 반사! 적에게 ${dmg}`);
+    const reflected1 = dmgEnemy(dmg);
+    addLog('enemy', `반사! 적에게 ${reflected1}`);
+    if (enemyDoubleHit && enemy.hp > 0) {
+      const reflected2 = dmgEnemy(dmg);
+      addLog('enemy', `반사 이중 2타! 적에게 ${reflected2}`);
+    }
     if (canAbility && w.corrupt) {
       const hasC = (typeof w.corrupt === 'boolean' && w.corrupt) || (typeof w.corrupt === 'number' && rand() < w.corrupt);
       if (hasC) {
@@ -5971,10 +6040,12 @@ async function enemyAttack() {
         await showAbility('☠️ 타락 부패!', `적에게 부패 ${cDmg}!`);
       }
     }
+    if (sword16ReflectActive) sword16ReflectActive = false;
   } else if (!dodged) {
     const hasCorrupt = (typeof w.corrupt === 'boolean' && w.corrupt) || (typeof w.corrupt === 'number' && rand() < w.corrupt);
     if (hasCorrupt) {
       if (playerPurifyNext) {
+        playerPurifyNext = false;
         await showAbility('✨ 정화 발동!', '적의 부패를 무효화했다!');
         addLog('ability', '정화로 부패 무효');
       } else if (hasNullify(true)) {
@@ -6016,10 +6087,7 @@ async function enemyAttack() {
       }
     }
   }
-  if (playerPurifyNext) {
-    playerPurifyNext = false;
-    addLog('ability', '정화 효과가 소모되었다');
-  }
+  // 정화 대기는 실제 상태이상/부패를 막았을 때만 소모된다.
 
   // 적 화염 도트 (플레이어에게 걸린 화염)
   if (enemy.fireTurns && enemy.fireTurns > 0) {
@@ -6049,7 +6117,7 @@ async function enemyAttack() {
     lastDamageTaken = 0;
   }
 
-  if (enemyPurifyNext) enemyPurifyNext = false;
+  // 적 정화 대기도 실제 상태이상/부패를 막았을 때만 소모된다.
 
   if (enemyAwakened && enemyAwakenType === 'excalibur') {
     enemyExcalTurns--;
@@ -6270,6 +6338,7 @@ function endBattle(win, reason) {
   }
 
   const paint = () => {
+    if (!battleEnded) return;
     try {
       clearBattleOverlays();
       // 모든 화면 끄기
