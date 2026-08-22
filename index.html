@@ -2488,15 +2488,15 @@ const TRANSCEND_WEAPON_NAMES = Object.freeze({
 });
 
 const SWORD_TRANSCEND_WEAPONS = Object.freeze({
-  11: Object.freeze({ name: '천명의 신검', atk: 85, heavenlyMandate: true, desc: '패시브 「천명」 · 3턴 신의 명령(공격 데미지 +30%) · 6턴 신의 하사(보호막 200) · 9턴 천명(즉사)' }),
-  12: Object.freeze({ name: '참살쇄도', atk: 105, slashRush: true, desc: '5번째 턴 「참살쇄도」 1회(공격력 70%×3) · 10번째 턴 「휘몰아치는 칼날」 1회(공격력 250%)' }),
+  11: Object.freeze({ name: '천명의 신검', atk: 85, heavenlyMandate: true, desc: '패시브 「천명」 · 8턴 신의 명령(공격 데미지 +30%) · 16턴 신의 하사(보호막 200) · 24턴 천명(즉사)' }),
+  12: Object.freeze({ name: '참살쇄도', atk: 105, slashRush: true, desc: '5번째 턴부터 「참살쇄도」 1회(공격력 70%×3) · 10번째 턴부터 「휘몰아치는 칼날」 1회(공격력 250%)' }),
   13: Object.freeze({ name: '안슐루스', atk: 130, annexation: 0.05, desc: '패시브 「합병」 · 자신의 턴마다 상대 현재 체력 5% 흡수 → 같은 양 보호막' }),
   14: Object.freeze({ name: '신살흑도', atk: 145, blackGodSlayer: true, desc: '스킬 「흑악신멸」 · 4턴마다 · 35% 즉사 · 즉사 불발 시 상대 최대 체력 65% 피해' }),
   15: Object.freeze({ name: '적월도', atk: 180, redMoonMadness: true, desc: '패시브 「적월의 광기」 · 잃은 체력 1%당 공격 데미지 +1% (최대 +100%)' }),
   16: Object.freeze({ name: '명월도', atk: 200, moonSeal: true, desc: '스킬 「월광봉멸」 · 3턴마다 · 다음 상대 공격 반사 · 다음 내 공격 2연타 · 15% 봉인' }),
   17: Object.freeze({ name: '마검 데스티니', atk: 225, demonResistance: true, demonEye: true, desc: '패시브 「마검의 저항」 · 매 자신의 턴 부패/타락/저주/봉인/즉사 각각 4% 자기 발동 · 「마검의 눈」 사망 후 공격 3회까지 불사' }),
   18: Object.freeze({ name: '진·엑스칼리버', atk: 300, instant: 0.65, transcendLastStand: 2, desc: '일반 공격마다 즉사 65% · 최후의 저항 2회' }),
-  19: Object.freeze({ name: '불멸의 무라마사', atk: 420, muramasaBurn: 0.02, immortalRevives: 3, desc: '공격 후 상대 현재 체력 2% 화상 · 패시브 「불멸」 최대 체력 75%로 3회 부활' }),
+  19: Object.freeze({ name: '불멸의 무라마사', atk: 420, muramasaBurn: 0.02, immortalRevives: 3, desc: '공격 후 상대 현재 체력 2% 화상 · 패시브 「불멸」 일반 즉사계열은 1 피해로 무효(종언·소멸·봉인 제외) · 최대 체력 75%로 3회 부활' }),
   20: Object.freeze({ name: '살신명도·종언', atk: 500, endingSkill: true, desc: '자신의 2번째 턴부터 전투당 1회 스킬 「종언」 · 50% 반드시 즉사 · 불발 시 10,000 피해' })
 });
 
@@ -2725,7 +2725,7 @@ function updateStatusIcons() {
   }
   if (playerClass === 'sword' && level === 17 && sword17DeathEyeActive) pIcons.push(`👁️마검의눈${sword17DeathEyeAttacksLeft}`);
   if (playerClass === 'sword' && level === 18 && sword18LastStandLeft > 0) pIcons.push(`⚔️저항x${sword18LastStandLeft}`);
-  if (playerClass === 'sword' && level === 19 && sword19RevivesLeft > 0) pIcons.push(`♾️불멸x${sword19RevivesLeft}`);
+  if (playerClass === 'sword' && level === 19) pIcons.push(`♾️불멸 · 부활x${sword19RevivesLeft}`);
   if ($('p-status')) $('p-status').textContent = pIcons.join(' ');
 
   const eIcons = [];
@@ -3027,16 +3027,30 @@ function bossIsUndying() {
   return !!(gameMode === 'boss' && enemy && (enemy.undying === true || enemy.name === '다르킨의 낫'));
 }
 
-/** 즉사류를 불사로 흡수. true면 즉사 무효 처리됨 */
+/** 불사: 일반 즉사계열을 1 피해로 바꾼다. 종언·소멸·봉인은 이 함수를 호출하지 않고 관통한다. */
 async function applyBossUndying(sourceLabel) {
   if (!bossIsUndying()) return false;
-  const maxH = enemy.maxHp || 1000;
-  const chip = Math.max(1, Math.floor(maxH * 0.40));
-  const before = Math.max(1, Number(enemy.hp) || maxH);
-  enemy.hp = Math.max(1, before - chip);
+  const before = Math.max(1, Number(enemy.hp) || Number(enemy.maxHp) || 1);
+  enemy.hp = Math.max(1, before - 1);
   enemy.undying = true;
-  await showAbility('♾️ 불사!', (sourceLabel || '즉사') + ' 무효! ' + chip + ' 피해 (' + before + '→' + enemy.hp + ')');
-  addLog('ability', '불사: ' + (sourceLabel || '즉사') + ' 무효, ' + chip + ' 피해 (' + before + '→' + enemy.hp + ')');
+  await showAbility('♾️ 불사!', (sourceLabel || '즉사') + ' 무효! 즉사 피해가 1로 변환 (' + before + '→' + enemy.hp + ')');
+  addLog('ability', '불사: ' + (sourceLabel || '즉사') + ' 무효, 1 피해 (' + before + '→' + enemy.hp + ')');
+  updateHPBars();
+  updateStatusIcons();
+  return true;
+}
+
+function playerHasImmortality() {
+  return playerClass === 'sword' && level === 19;
+}
+
+/** 무라마사의 불멸: 일반 즉사계열을 1 피해로 바꾼다. */
+async function applyPlayerImmortality(sourceLabel) {
+  if (!playerHasImmortality()) return false;
+  const before = Math.max(1, Number(hp) || Number(maxHp) || 1);
+  hp = Math.max(1, before - 1);
+  await showAbility('♾️ 불멸!', (sourceLabel || '즉사') + ' 무효! 즉사 피해가 1로 변환 (' + before + '→' + hp + ')');
+  addLog('ability', '불멸: ' + (sourceLabel || '즉사') + ' 무효, 1 피해 (' + before + '→' + hp + ')');
   updateHPBars();
   updateStatusIcons();
   return true;
@@ -3075,7 +3089,7 @@ async function tryBossTransform() {
     enemy.weapon = {
       name: '다르킨의 낫',
       atk: 75,
-      desc: '불사(즉사→최대HP40%피해, 봉인관통) · 흡혈20% · 3턴마다 살상돌격'
+      desc: '불사(일반 즉사계열→1피해, 종언·소멸·봉인 관통) · 흡혈20% · 3턴마다 살상돌격'
     };
     await playFx('boss_darkin');
     await showAbility('🩸 라아스트를 경배하라', '시이다 케인이 다르킨의 낫으로 부활했다!');
@@ -4361,8 +4375,8 @@ function mageActiveSkillInfo() {
   }
   if (playerClass === 'sword') {
     if (level === 12) {
-      if (!sword12SlashUsed && upcomingTurn <= 5) return { name: '참살쇄도', cooldown: 0, icon: '⚔️', exactTurn: 5 };
-      if (!sword12TornadoUsed && upcomingTurn <= 10) return { name: '휘몰아치는 칼날', cooldown: 0, icon: '🌪️', exactTurn: 10 };
+      if (!sword12SlashUsed) return { name: '참살쇄도', cooldown: 0, icon: '⚔️', unlockTurn: 5 };
+      if (!sword12TornadoUsed) return { name: '휘몰아치는 칼날', cooldown: 0, icon: '🌪️', unlockTurn: 10 };
       return null;
     }
     if (level === 14) return { name: '흑악신멸', cooldown: 4, icon: '⚫' };
@@ -4380,7 +4394,7 @@ function canUseMageSkillNow() {
   if (playerClass === 'mage' && level === 20 && mage20SkillUsed) return false;
   if (playerClass === 'sword' && level === 20 && sword20SkillUsed) return false;
   const upcomingTurn = playerTurnCount + 1;
-  if (info.exactTurn != null) return upcomingTurn === info.exactTurn;
+  if (info.unlockTurn != null) return upcomingTurn >= info.unlockTurn;
   return upcomingTurn >= mageSkillNextReadyTurn;
 }
 
@@ -4409,10 +4423,8 @@ function updateMageSkillButton() {
   let status = '';
   if ((playerClass === 'mage' && level === 20 && mage20SkillUsed) || (playerClass === 'sword' && level === 20 && sword20SkillUsed)) {
     status = '전투당 1회 사용 완료';
-  } else if (info.exactTurn != null && upcomingTurn < info.exactTurn) {
-    status = `자신의 ${info.exactTurn}번째 턴에 1회 사용 가능`;
-  } else if (info.exactTurn != null && upcomingTurn > info.exactTurn) {
-    status = '해당 스킬 사용 가능 턴이 지났습니다';
+  } else if (info.unlockTurn != null && upcomingTurn < info.unlockTurn) {
+    status = `자신의 ${info.unlockTurn}번째 턴부터 1회 사용 가능`;
   } else if (playerParalyzed || playerSealed) {
     status = '상태이상으로 이번 턴 스킬 사용 불가';
   } else if (playerCursed > 0) {
@@ -4523,6 +4535,7 @@ function trySwordTranscendSurvival(reason) {
   }
 
   if (level === 19 && sword19RevivesLeft > 0) {
+    if (/봉인|종언/.test(String(reason || ''))) return false;
     sword19RevivesLeft--;
     hp = Math.max(1, Math.floor(maxHp * 0.75));
     addLog('ability', `♾️ 불멸! 최대 체력 75%로 부활 · 남은 ${sword19RevivesLeft}회`);
@@ -4538,25 +4551,29 @@ async function beginSwordTranscendTurn() {
   if (level === 16) sword16ReflectActive = false;
 
   if (level === 11) {
-    if (playerTurnCount === 3 && !sword11DamageBuff) {
+    if (playerTurnCount === 8 && !sword11DamageBuff) {
       sword11DamageBuff = true;
       await showAbility('👑 신의 명령', '공격 데미지 +30%를 획득했다!');
       addLog('ability', '천명 1단계: 신의 명령 · 공격 데미지 +30%');
     }
-    if (playerTurnCount === 6 && !sword11ShieldGranted) {
+    if (playerTurnCount === 16 && !sword11ShieldGranted) {
       sword11ShieldGranted = true;
       playerShield += 200;
       await showAbility('🛡️ 신의 하사', `보호막 200 획득! 현재 보호막 ${playerShield}`);
       addLog('ability', '천명 2단계: 신의 하사 · 보호막 +200');
     }
-    if (playerTurnCount === 9 && !sword11DestinyUsed && enemy.hp > 0) {
+    if (playerTurnCount === 24 && !sword11DestinyUsed && enemy.hp > 0) {
       sword11DestinyUsed = true;
-      enemy.hp = 0;
-      await playFx('kill');
-      await showAbility('👑 천명', '신의 뜻으로 대상을 즉사시켰다!');
-      addLog('ability', '천명 3단계: 대상 즉사');
-      updateHPBars();
-      if (await resolveEnemyDeathFromMageSkill('천명')) return true;
+      if (await applyBossUndying('천명')) {
+        addLog('ability', '천명 3단계: 불사로 즉사가 1 피해로 변환');
+      } else {
+        enemy.hp = 0;
+        await playFx('kill');
+        await showAbility('👑 천명', '신의 뜻으로 대상을 즉사시켰다!');
+        addLog('ability', '천명 3단계: 대상 즉사');
+        updateHPBars();
+        if (await resolveEnemyDeathFromMageSkill('천명')) return true;
+      }
     }
   }
 
@@ -4582,7 +4599,7 @@ async function beginSwordTranscendTurn() {
     }
     if (rand() < 0.04) { playerFall = true; triggered.push('타락'); }
     if (rand() < 0.04) { playerCursed = Math.min(2, playerCursed + 1); triggered.push(`저주${playerCursed}`); }
-    if (rand() < 0.04) { playerSealed = true; triggered.push('봉인'); }
+    if (rand() < 0.04) { hp = 0; triggered.push('봉인(즉사)'); }
     if (rand() < 0.04) { hp = 0; triggered.push('즉사'); }
     if (triggered.length) {
       await showAbility('🩸 마검의 저항', `자신에게 ${triggered.join(' · ')} 발동!`);
@@ -4871,15 +4888,17 @@ async function useMageSkill() {
         await showAbility('🌪️ 휘몰아치는 칼날!', `토네이도 참격! 공격력 250% · ${actual} 피해`);
         addLog('ability', `휘몰아치는 칼날: ${actual} 피해`);
       } else if (level === 14) {
-        let instantSucceeded = false;
-        if (rand() < 0.35 && !bossIsUndying()) {
-          instantSucceeded = true;
-          enemy.hp = 0;
-          await playFx('kill');
-          await showAbility('⚫ 흑악신멸!', '35% 신살 발동! 대상을 즉사시켰다!');
-          addLog('ability', '흑악신멸: 즉사 성공');
-        }
-        if (!instantSucceeded) {
+        const instantRolled = rand() < 0.35;
+        if (instantRolled) {
+          if (await applyBossUndying('흑악신멸')) {
+            addLog('ability', '흑악신멸: 즉사 성공 판정 → 불사로 1 피해');
+          } else {
+            enemy.hp = 0;
+            await playFx('kill');
+            await showAbility('⚫ 흑악신멸!', '35% 신살 발동! 대상을 즉사시켰다!');
+            addLog('ability', '흑악신멸: 즉사 성공');
+          }
+        } else {
           const raw = Math.max(1, Math.floor(enemy.maxHp * 0.65));
           const actual = dmgEnemy(raw);
           await showAbility('⚫ 흑악신멸!', `즉사 불발 → 상대 최대 체력 65% · ${actual} 피해!`);
@@ -5743,7 +5762,12 @@ async function enemyAttack() {
     if (rand() < ikRate) {
       const isCham = abilityW.name === '세계를 가르는 검' || (abilityW.instantLow != null && abilityW.name !== '엑스칼리버');
       await playFx(isCham ? 'chamgyeok' : 'kill');
-      if (playerShield > 0) {
+      if (playerHasImmortality()) {
+        await applyPlayerImmortality(isCham ? '참격' : '즉사');
+        $('atk-btn').disabled = false;
+        if (autoMode) scheduleAutoAttack(400);
+        return;
+      } else if (playerShield > 0) {
         await showAbility('🛡️ 보호막 방어!', `즉사를 막았다! (보호막 ${playerShield} 소모)`);
         playerShield = 0;
         updateStatusIcons();
@@ -5808,6 +5832,12 @@ async function enemyAttack() {
   }
   if (canAbility && abilityW.instantCond && enemy.hp < enemy.maxHp * 0.6 && rand() < abilityW.instantCond) {
     await playFx('supernova');
+    if (playerHasImmortality()) {
+      await applyPlayerImmortality('초신성');
+      $('atk-btn').disabled = false;
+      if (autoMode) scheduleAutoAttack(400);
+      return;
+    }
     await showAbility('💥 적의 초신성 폭발!', '체력 60% 미만 즉사!');
     hp = 0;
     if (playerAwakened && !playerLastStandUsed) {
