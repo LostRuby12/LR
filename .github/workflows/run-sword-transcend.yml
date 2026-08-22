@@ -1,5 +1,6 @@
 name: Run sword transcend implementation
 
+# trigger: 2026-08-22 sword transcend
 on:
   push:
     branches: [main]
