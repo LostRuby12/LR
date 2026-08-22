@@ -846,6 +846,8 @@ let playerTurnCount = 0;
 let mageSkillNextReadyTurn = 0;
 let mage12BuffStacks = 0;
 let mage13OmenPending = false;
+let mage14DeathRequiemPending = false;
+let mage14DeathRequiemUsed = false;
 let mage18NormalImmuneEnemyTurns = 0;
 let mage18EnemyTurnNormalImmune = false;
 let mage19CheckpointHp = 0;
@@ -2473,7 +2475,7 @@ const MAGE_TRANSCEND_WEAPONS = Object.freeze({
   11: Object.freeze({ name: '고대의 전설', atk: 65, seal: 0.05, curse: 0.15, desc: '봉인 5% · 저주 15%' }),
   12: Object.freeze({ name: '신 전설의 시작', atk: 75, mythicStart: true, desc: '스킬 「신화의 시작」 · 자신의 2턴 경과 후 사용 · 사용 시 공격력 +15% 누적 · 사용 후 2턴 충전' }),
   13: Object.freeze({ name: '파멸의 징조', atk: 110, omenChance: 0.30, desc: '패시브: 자신의 턴마다 30% 징조 부여 · 다음 자신의 턴에 공격력 150% 추가 공격' }),
-  14: Object.freeze({ name: '파멸의 노래', atk: 35, requiem: true, desc: '스킬 「레퀴엠」 · 4턴마다 사용 · 상대 최대 체력 30% 피해' }),
+  14: Object.freeze({ name: '파멸의 노래', atk: 35, requiem: true, desc: '스킬 「레퀴엠」 · 4턴마다 사용 · 상대 최대 체력 20% 피해 · 사망 후 최후의 레퀴엠 1회' }),
   15: Object.freeze({ name: '공허균열의 지팡이', atk: 140, rift: 0.40, desc: '균열 40% · 공격 데미지 2배 · 보호막/정화 무시' }),
   16: Object.freeze({ name: '만물의 혼돈', atk: 175, fall: 0.05, corrupt: 0.05, rift: 0.05, paralyze: 0.05, fire: true, fireRate: 0.05, instant: 0.05, desc: '타락·부패·균열·마비·화염·즉사 각각 5%' }),
   17: Object.freeze({ name: '만물의 근절', atk: 195, nightfallSkill: true, desc: '스킬 「몰락의 밤」 · 3턴마다 사용 · 상대 현재 체력 절반 삭제' }),
@@ -4264,6 +4266,8 @@ function resetMageTranscendBattleState() {
   playerTurnCount = 0;
   mage12BuffStacks = 0;
   mage13OmenPending = false;
+  mage14DeathRequiemPending = false;
+  mage14DeathRequiemUsed = false;
   mage18NormalImmuneEnemyTurns = 0;
   mage18EnemyTurnNormalImmune = false;
   mage19CheckpointHp = 0;
@@ -4294,6 +4298,7 @@ function mageActiveSkillInfo() {
 }
 
 function canUseMageSkillNow() {
+  if (mage14DeathRequiemPending && !mage14DeathRequiemUsed && playerClass === 'mage' && level === 14) return true;
   const info = mageActiveSkillInfo();
   if (!info || battleEnded || playerAttackLock || rtActive || autoMode) return false;
   if (playerParalyzed || playerSealed || playerCursed > 0) return false;
@@ -4306,6 +4311,14 @@ function updateMageSkillButton() {
   const btn = $('mage-skill-btn');
   const st = $('mage-skill-status');
   if (!btn || !st) return;
+  if (mage14DeathRequiemPending && !mage14DeathRequiemUsed && playerClass === 'mage' && level === 14) {
+    btn.style.display = 'block';
+    st.style.display = 'block';
+    btn.textContent = '🎼 스킬: 최후의 레퀴엠';
+    btn.disabled = false;
+    st.textContent = '사망 후 1회 사용 가능 · 상대 최대 체력 20% 피해';
+    return;
+  }
   const info = mageActiveSkillInfo();
   if (!info || battleEnded || rtActive) {
     btn.style.display = 'none';
@@ -4537,7 +4550,54 @@ async function executeMage20Annihilation() {
   }
 }
 
+function offerMage14DeathRequiem(reason) {
+  if (playerClass !== 'mage' || level !== 14) return false;
+  if (mage14DeathRequiemPending || mage14DeathRequiemUsed) return false;
+  if (!enemy || enemy.hp <= 0) return false;
+  if (/강제 종료|항복|연결|소멸/.test(String(reason || ''))) return false;
+
+  mage14DeathRequiemPending = true;
+  battleEnded = false;
+  autoMode = false;
+  playerAttackLock = false;
+  try {
+    const atk = $('atk-btn');
+    if (atk) { atk.style.display = 'block'; atk.disabled = true; }
+    const auto = $('auto-btn');
+    if (auto) auto.style.display = 'none';
+    addLog('ability', '🎼 파멸의 노래: 사망 후 「최후의 레퀴엠」 1회 사용 가능');
+    updateHPBars();
+    updateStatusIcons();
+    updateMageSkillButton();
+  } catch (e) { console.warn('offerMage14DeathRequiem', e); }
+  return true;
+}
+
+async function useMage14DeathRequiem() {
+  if (!mage14DeathRequiemPending || mage14DeathRequiemUsed || !enemy) return;
+  mage14DeathRequiemPending = false;
+  mage14DeathRequiemUsed = true;
+  playerAttackLock = true;
+  try {
+    const raw = Math.max(1, Math.floor(enemy.maxHp * 0.20));
+    const actual = dmgEnemy(raw);
+    await showAbility('🎼 최후의 레퀴엠', `죽음 뒤 마지막 연주! 상대 최대 체력의 20% · ${actual} 피해!`);
+    addLog('ability', `최후의 레퀴엠: ${actual} 피해`);
+    updateHPBars();
+    updateStatusIcons();
+    if (await resolveEnemyDeathFromMageSkill('최후의 레퀴엠')) return;
+    endBattle(false, '최후의 레퀴엠 후 패배');
+  } finally {
+    playerAttackLock = false;
+    updateMageSkillButton();
+  }
+}
+
 async function useMageSkill() {
+  if (mage14DeathRequiemPending && playerClass === 'mage' && level === 14) {
+    await useMage14DeathRequiem();
+    return;
+  }
   if (level === 20) {
     if (canUseMageSkillNow()) openMage20Choice();
     return;
@@ -4557,9 +4617,9 @@ async function useMageSkill() {
       await showAbility('📖 신화의 시작', `공격력 +15% 누적! 현재 +${mage12BuffStacks * 15}%`);
       addLog('ability', `신화의 시작: 공격력 +${mage12BuffStacks * 15}%`);
     } else if (level === 14) {
-      const raw = Math.max(1, Math.floor(enemy.maxHp * 0.30));
+      const raw = Math.max(1, Math.floor(enemy.maxHp * 0.20));
       const actual = dmgEnemy(raw);
-      await showAbility('🎼 레퀴엠', `상대 최대 체력의 30% · ${actual} 피해!`);
+      await showAbility('🎼 레퀴엠', `상대 최대 체력의 20% · ${actual} 피해!`);
       addLog('ability', `레퀴엠: ${actual} 피해`);
     } else if (level === 17) {
       const raw = Math.max(1, Math.floor(enemy.hp * 0.50));
@@ -5747,6 +5807,7 @@ function forceExitBattle() {
 
 function endBattle(win, reason) {
   if (!win && tryMage19CheckpointRevive(reason)) return;
+  if (!win && offerMage14DeathRequiem(reason)) return;
   // 이미 끝났어도 결과 화면만 다시 보장
   const already = battleEnded;
   battleEnded = true;
