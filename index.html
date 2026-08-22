@@ -860,7 +860,8 @@ let sword11ShieldGranted = false;
 let sword11DestinyUsed = false;
 let sword12SlashUsed = false;
 let sword12TornadoUsed = false;
-let sword16ReflectEnemyTurn = -1;
+let sword16ReflectPending = false;
+let sword16ReflectActive = false;
 let sword16DoubleNext = false;
 let sword17DeathEyeActive = false;
 let sword17DeathEyeUsed = false;
@@ -2609,7 +2610,7 @@ function tryEmergencyShield(isPlayer, incoming) {
 }
 
 function dmgPlayer(amount) {
-  if (playerClass === 'sword' && level === 16 && sword16ReflectEnemyTurn === enemyTurnCount && Number(amount) > 0) {
+  if (playerClass === 'sword' && level === 16 && sword16ReflectActive && Number(amount) > 0) {
     const reflected = dmgEnemy(Number(amount) || 0);
     addLog('ability', `🌙 월광봉멸 반사: 적에게 ${reflected} 피해`);
     return 0;
@@ -4320,7 +4321,8 @@ function resetMageTranscendBattleState() {
   sword11DestinyUsed = false;
   sword12SlashUsed = false;
   sword12TornadoUsed = false;
-  sword16ReflectEnemyTurn = -1;
+  sword16ReflectPending = false;
+  sword16ReflectActive = false;
   sword16DoubleNext = false;
   sword17DeathEyeActive = false;
   sword17DeathEyeUsed = false;
@@ -4533,6 +4535,7 @@ function trySwordTranscendSurvival(reason) {
 
 async function beginSwordTranscendTurn() {
   if (playerClass !== 'sword' || level < 11 || level > 20 || !enemy) return false;
+  if (level === 16) sword16ReflectActive = false;
 
   if (level === 11) {
     if (playerTurnCount === 3 && !sword11DamageBuff) {
@@ -4869,16 +4872,12 @@ async function useMageSkill() {
         addLog('ability', `휘몰아치는 칼날: ${actual} 피해`);
       } else if (level === 14) {
         let instantSucceeded = false;
-        if (rand() < 0.35) {
-          if (await applyBossUndying('흑악신멸')) {
-            instantSucceeded = false;
-          } else {
-            instantSucceeded = true;
-            enemy.hp = 0;
-            await playFx('kill');
-            await showAbility('⚫ 흑악신멸!', '35% 신살 발동! 대상을 즉사시켰다!');
-            addLog('ability', '흑악신멸: 즉사 성공');
-          }
+        if (rand() < 0.35 && !bossIsUndying()) {
+          instantSucceeded = true;
+          enemy.hp = 0;
+          await playFx('kill');
+          await showAbility('⚫ 흑악신멸!', '35% 신살 발동! 대상을 즉사시켰다!');
+          addLog('ability', '흑악신멸: 즉사 성공');
         }
         if (!instantSucceeded) {
           const raw = Math.max(1, Math.floor(enemy.maxHp * 0.65));
@@ -4887,7 +4886,8 @@ async function useMageSkill() {
           addLog('ability', `흑악신멸 대체 피해: ${actual}`);
         }
       } else if (level === 16) {
-        sword16ReflectEnemyTurn = enemyTurnCount + 1;
+        sword16ReflectPending = true;
+        sword16ReflectActive = false;
         sword16DoubleNext = true;
         await showAbility('🌙 월광봉멸!', '다음 상대 공격 반사 · 다음 내 공격 2연타!');
         addLog('ability', '월광봉멸: 반사 대기 + 다음 공격 2연타');
@@ -5558,6 +5558,12 @@ async function enemyAttack() {
 
   // ===== 보스 전용 공격 =====
   if (gameMode === 'boss' && enemy && enemy.isBoss) {
+    if (playerClass === 'sword' && level === 16 && sword16ReflectPending) {
+      sword16ReflectPending = false;
+      sword16ReflectActive = true;
+      await showAbility('🌙 월광봉멸 반사!', '보스의 다음 실제 공격을 그대로 반사!');
+      addLog('ability', '월광봉멸: 보스 실제 공격 1회 반사');
+    }
     bossAttackCount++;
     let dmg = enemy.atk || 60;
     let usedSkill = false;
@@ -5719,11 +5725,13 @@ async function enemyAttack() {
 
   // 타락: 적 공격+능력이 적 자신에게
   let enemyFallSelf = false;
-  if (playerClass === 'sword' && level === 16 && sword16ReflectEnemyTurn === enemyTurnCount) {
+  if (playerClass === 'sword' && level === 16 && sword16ReflectPending) {
+    sword16ReflectPending = false;
+    sword16ReflectActive = true;
     enemyFall = false;
     enemyFallSelf = true;
-    await showAbility('🌙 월광봉멸 반사!', '상대의 공격과 능력을 그대로 반사!');
-    addLog('ability', '월광봉멸: 상대 공격 반사');
+    await showAbility('🌙 월광봉멸 반사!', '상대의 다음 실제 공격과 능력을 그대로 반사!');
+    addLog('ability', '월광봉멸: 상대 실제 공격 1회 반사');
   } else if (enemyFall) {
     enemyFall = false;
     enemyFallSelf = true;
