@@ -1,0 +1,715 @@
+name: Implement sword transcend 11-20
+
+on:
+  push:
+    branches:
+      - feat/sword-transcend-11-20-20260822
+    paths:
+      - .github/workflows/sword-transcend-impl.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/sword-transcend-11-20-20260822
+          fetch-depth: 0
+
+      - name: Patch index.html
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+
+          def rep(old, new, count=1):
+              global s
+              if old not in s:
+                  raise SystemExit('ANCHOR NOT FOUND:\n' + old[:300])
+              s = s.replace(old, new, count)
+
+          # 1) 검사 +11~+20 고유 무기 데이터
+          anchor = "const MAGE_TRANSCEND_WEAPONS = Object.freeze({"
+          sword_data = """const SWORD_TRANSCEND_WEAPONS = Object.freeze({
+            11: Object.freeze({ name: '천명의 신검', atk: 85, heavenlyMandate: true, desc: '패시브 「천명」 · 3턴 신의 명령(공격력 +30%) · 6턴 신의 하사(보호막 200) · 9턴 천명(즉사)' }),
+            12: Object.freeze({ name: '참살쇄도', atk: 105, slashRush: true, desc: '5번째 턴 「참살쇄도」 1회(공격력 70%×3) · 10번째 턴 「휘몰아치는 칼날」 1회(공격력 250%)' }),
+            13: Object.freeze({ name: '안슐루스', atk: 130, annexation: 0.05, desc: '패시브 「합병」 · 자신의 턴마다 상대 현재 체력 5% 흡수 → 같은 양 보호막' }),
+            14: Object.freeze({ name: '신살흑도', atk: 145, blackGodSlayer: true, desc: '스킬 「흑악신멸」 · 4턴마다 · 35% 즉사 · 즉사 불발 시 상대 최대 체력 65% 피해' }),
+            15: Object.freeze({ name: '적월도', atk: 180, redMoonMadness: true, desc: '패시브 「적월의 광기」 · 잃은 체력 1%당 공격 데미지 +1% (최대 +100%)' }),
+            16: Object.freeze({ name: '명월도', atk: 200, moonSeal: true, desc: '스킬 「월광봉멸」 · 3턴마다 · 다음 상대 공격 반사 · 다음 내 공격 2연타 · 15% 봉인' }),
+            17: Object.freeze({ name: '마검 데스티니', atk: 225, demonResistance: true, demonEye: true, desc: '패시브 「마검의 저항」 · 매 자신의 턴 부패/타락/저주/봉인/즉사 각각 4% 자기 발동 · 「마검의 눈」 사망 후 공격 3회까지 불사' }),
+            18: Object.freeze({ name: '진·엑스칼리버', atk: 300, instant: 0.65, transcendLastStand: 2, desc: '일반 공격마다 즉사 65% · 최후의 저항 2회' }),
+            19: Object.freeze({ name: '불멸의 무라마사', atk: 420, muramasaBurn: 0.02, immortalRevives: 3, desc: '공격 후 상대 현재 체력 2% 화상 · 패시브 「불멸」 최대 체력 75%로 3회 부활' }),
+            20: Object.freeze({ name: '살신명도·종언', atk: 500, endingSkill: true, desc: '자신의 2번째 턴부터 전투당 1회 스킬 「종언」 · 50% 반드시 즉사 · 불발 시 10,000 피해' })
+          });
+
+          """
+          if 'const SWORD_TRANSCEND_WEAPONS = Object.freeze({' not in s:
+              rep(anchor, sword_data + anchor)
+
+          # 2) getWeapon: 기존 +10 복사/자동 +10% 제거하고 검사 고유 데이터 사용
+          old = """  if (lv > 10 && cls === 'mage') {
+            const t = MAGE_TRANSCEND_WEAPONS[Math.min(20, Math.max(11, lv))];
+            return Object.assign({}, t);
+          }
+          const weapon = Object.assign({}, list[Math.min(lv - 1, 9)]);
+          if (lv > 10 && cls === 'sword') {
+            const extra = Math.max(0, lv - 10);
+            weapon.atk = Math.max(0, Math.round((Number(weapon.atk) || 0) * (1 + extra * 0.10)));
+            weapon.name = (TRANSCEND_WEAPON_NAMES[cls] && TRANSCEND_WEAPON_NAMES[cls][lv]) || `${weapon.name} · 초월 +${lv}`;
+            weapon.desc = `초월 강화: +10 이후 단계당 공격력 +10% · ${weapon.desc || '기본 능력 유지'}`;
+          }
+          return weapon;"""
+          new = """  if (lv > 10 && cls === 'mage') {
+            const t = MAGE_TRANSCEND_WEAPONS[Math.min(20, Math.max(11, lv))];
+            return Object.assign({}, t);
+          }
+          if (lv > 10 && cls === 'sword') {
+            const t = SWORD_TRANSCEND_WEAPONS[Math.min(20, Math.max(11, lv))];
+            return Object.assign({}, t);
+          }
+          const weapon = Object.assign({}, list[Math.min(lv - 1, 9)]);
+          return weapon;"""
+          rep(old, new)
+
+          # 3) 검사 초월 전투 상태
+          old = """let mage19CheckpointHp = 0;
+          let mage19RewindCharges = 0;
+          let mage20SkillUsed = false;
+
+          // 이벤트(구 보스전)"""
+          new = """let mage19CheckpointHp = 0;
+          let mage19RewindCharges = 0;
+          let mage20SkillUsed = false;
+
+          // 검사 +11~+20 초월 전투 상태
+          let sword11DamageBuff = false;
+          let sword11ShieldGranted = false;
+          let sword11DestinyUsed = false;
+          let sword12SlashUsed = false;
+          let sword12TornadoUsed = false;
+          let sword16ReflectNext = false;
+          let sword16DoubleNext = false;
+          let sword17DeathEyeActive = false;
+          let sword17DeathEyeAttacksLeft = 0;
+          let sword18LastStandLeft = 0;
+          let sword19RevivesLeft = 0;
+          let sword20SkillUsed = false;
+
+          // 이벤트(구 보스전)"""
+          rep(old, new)
+
+          # 4) 상태 아이콘
+          old = """  if (playerClass === 'mage' && level === 19 && mage19RewindCharges > 0) pIcons.push(`⏪회귀x${mage19RewindCharges}`);
+          if ($('p-status')) $('p-status').textContent = pIcons.join(' ');"""
+          new = """  if (playerClass === 'mage' && level === 19 && mage19RewindCharges > 0) pIcons.push(`⏪회귀x${mage19RewindCharges}`);
+          if (playerClass === 'sword' && level === 11 && sword11DamageBuff) pIcons.push('👑신의명령+30%');
+          if (playerClass === 'sword' && level === 17 && sword17DeathEyeActive) pIcons.push(`👁️마검의눈${sword17DeathEyeAttacksLeft}`);
+          if (playerClass === 'sword' && level === 18 && sword18LastStandLeft > 0) pIcons.push(`⚔️저항x${sword18LastStandLeft}`);
+          if (playerClass === 'sword' && level === 19 && sword19RevivesLeft > 0) pIcons.push(`♾️불멸x${sword19RevivesLeft}`);
+          if ($('p-status')) $('p-status').textContent = pIcons.join(' ');"""
+          rep(old, new)
+
+          # 5) 리셋 + 스킬 준비 턴
+          old = """  mage19CheckpointHp = 0;
+            mage19RewindCharges = 0;
+            mage20SkillUsed = false;
+            if (playerClass === 'mage') {
+              if (level === 12) mageSkillNextReadyTurn = 3;
+              else if (level === 14) mageSkillNextReadyTurn = 4;
+              else if (level === 17) mageSkillNextReadyTurn = 3;
+              else if (level === 18) mageSkillNextReadyTurn = 7;
+              else if (level === 20) mageSkillNextReadyTurn = 2;
+              else mageSkillNextReadyTurn = 0;
+            } else {
+              mageSkillNextReadyTurn = 0;
+            }"""
+          new = """  mage19CheckpointHp = 0;
+            mage19RewindCharges = 0;
+            mage20SkillUsed = false;
+            sword11DamageBuff = false;
+            sword11ShieldGranted = false;
+            sword11DestinyUsed = false;
+            sword12SlashUsed = false;
+            sword12TornadoUsed = false;
+            sword16ReflectNext = false;
+            sword16DoubleNext = false;
+            sword17DeathEyeActive = false;
+            sword17DeathEyeAttacksLeft = 0;
+            sword18LastStandLeft = (playerClass === 'sword' && level === 18) ? 2 : 0;
+            sword19RevivesLeft = (playerClass === 'sword' && level === 19) ? 3 : 0;
+            sword20SkillUsed = false;
+            if (playerClass === 'mage') {
+              if (level === 12) mageSkillNextReadyTurn = 3;
+              else if (level === 14) mageSkillNextReadyTurn = 4;
+              else if (level === 17) mageSkillNextReadyTurn = 3;
+              else if (level === 18) mageSkillNextReadyTurn = 7;
+              else if (level === 20) mageSkillNextReadyTurn = 2;
+              else mageSkillNextReadyTurn = 0;
+            } else if (playerClass === 'sword') {
+              if (level === 14) mageSkillNextReadyTurn = 4;
+              else if (level === 16) mageSkillNextReadyTurn = 3;
+              else if (level === 20) mageSkillNextReadyTurn = 2;
+              else mageSkillNextReadyTurn = 0;
+            } else {
+              mageSkillNextReadyTurn = 0;
+            }"""
+          rep(old, new)
+
+          # 6) 공용 스킬 정보: 기존 버튼을 검사도 재사용
+          old = """function mageActiveSkillInfo() {
+            if (playerClass !== 'mage') return null;
+            if (level === 12) return { name: '신화의 시작', cooldown: 2, icon: '📖' };
+            if (level === 14) return { name: '레퀴엠', cooldown: 4, icon: '🎼' };
+            if (level === 17) return { name: '몰락의 밤', cooldown: 3, icon: '🌑' };
+            if (level === 18) return { name: '생명의 샘', cooldown: 7, icon: '💧' };
+            if (level === 20) return { name: '천지의 선택', cooldown: 0, icon: '🌌' };
+            return null;
+          }"""
+          new = """function mageActiveSkillInfo() {
+            const upcomingTurn = playerTurnCount + 1;
+            if (playerClass === 'mage') {
+              if (level === 12) return { name: '신화의 시작', cooldown: 2, icon: '📖' };
+              if (level === 14) return { name: '레퀴엠', cooldown: 4, icon: '🎼' };
+              if (level === 17) return { name: '몰락의 밤', cooldown: 3, icon: '🌑' };
+              if (level === 18) return { name: '생명의 샘', cooldown: 7, icon: '💧' };
+              if (level === 20) return { name: '천지의 선택', cooldown: 0, icon: '🌌' };
+              return null;
+            }
+            if (playerClass === 'sword') {
+              if (level === 12) {
+                if (!sword12SlashUsed && upcomingTurn <= 5) return { name: '참살쇄도', cooldown: 0, icon: '⚔️', exactTurn: 5 };
+                if (!sword12TornadoUsed && upcomingTurn <= 10) return { name: '휘몰아치는 칼날', cooldown: 0, icon: '🌪️', exactTurn: 10 };
+                return null;
+              }
+              if (level === 14) return { name: '흑악신멸', cooldown: 4, icon: '⚫' };
+              if (level === 16) return { name: '월광봉멸', cooldown: 3, icon: '🌙' };
+              if (level === 20) return { name: '종언', cooldown: 0, icon: '☄️' };
+            }
+            return null;
+          }"""
+          rep(old, new)
+
+          # 7) 스킬 사용 가능 조건: +12 정확히 5/10턴, +20 전투당1회
+          old = """  if (level === 20 && mage20SkillUsed) return false;
+            const upcomingTurn = playerTurnCount + 1;
+            return upcomingTurn >= mageSkillNextReadyTurn;"""
+          new = """  if (playerClass === 'mage' && level === 20 && mage20SkillUsed) return false;
+            if (playerClass === 'sword' && level === 20 && sword20SkillUsed) return false;
+            const upcomingTurn = playerTurnCount + 1;
+            if (info.exactTurn != null) return upcomingTurn === info.exactTurn;
+            return upcomingTurn >= mageSkillNextReadyTurn;"""
+          rep(old, new)
+
+          # 8) 스킬 상태 문구 +20 사용완료, +12 정확한 턴 안내
+          old = """  if (level === 20 && mage20SkillUsed) {
+              status = '전투당 1회 사용 완료';
+            } else if (playerParalyzed || playerSealed) {"""
+          new = """  if ((playerClass === 'mage' && level === 20 && mage20SkillUsed) || (playerClass === 'sword' && level === 20 && sword20SkillUsed)) {
+              status = '전투당 1회 사용 완료';
+            } else if (info.exactTurn != null && upcomingTurn < info.exactTurn) {
+              status = `자신의 ${info.exactTurn}번째 턴에 1회 사용 가능`;
+            } else if (info.exactTurn != null && upcomingTurn > info.exactTurn) {
+              status = '해당 스킬 사용 가능 턴이 지났습니다';
+            } else if (playerParalyzed || playerSealed) {"""
+          rep(old, new)
+
+          # 9) 검사 패시브/생존/토네이도 헬퍼
+          anchor = "async function beginPlayerActionTurn() {"
+          helpers = r"""
+          async function playSwordTornadoFx() {
+            const overlay = $('fx-overlay');
+            if (!overlay) return;
+            overlay.classList.add('active');
+            const t = document.createElement('div');
+            t.textContent = '🌪️';
+            t.style.cssText = 'position:absolute;left:50%;top:50%;font-size:7rem;transform:translate(-50%,-50%) scale(.2) rotate(0deg);filter:drop-shadow(0 0 25px #8fe8ff);z-index:3;';
+            overlay.appendChild(t);
+            try {
+              t.animate([
+                { transform:'translate(-50%,-50%) scale(.2) rotate(0deg)', opacity:0.2 },
+                { transform:'translate(-50%,-50%) scale(1.35) rotate(540deg)', opacity:1 },
+                { transform:'translate(-50%,-50%) scale(.8) rotate(900deg)', opacity:0 }
+              ], { duration:700, easing:'ease-out' });
+            } catch (e) {}
+            await sleep(700);
+            overlay.classList.remove('active');
+            overlay.innerHTML = '';
+          }
+
+          function restorePlayerControlAfterSwordSurvival() {
+            battleEnded = false;
+            autoMode = false;
+            playerAttackLock = false;
+            try {
+              const atk = $('atk-btn');
+              if (atk) { atk.style.display = 'block'; atk.disabled = false; }
+            } catch (e) {}
+            updateHPBars();
+            updateStatusIcons();
+            updateMageSkillButton();
+          }
+
+          function trySwordTranscendSurvival(reason) {
+            if (playerClass !== 'sword' || hp > 0) return false;
+            if (/강제 종료|항복|연결|소멸/.test(String(reason || ''))) return false;
+
+            if (level === 17) {
+              if (!sword17DeathEyeActive) {
+                sword17DeathEyeActive = true;
+                sword17DeathEyeAttacksLeft = 3;
+                hp = 1;
+                addLog('ability', '👁️ 마검의 눈! 사망 후 공격 3회까지 죽지 않는다.');
+                showAbility('👁️ 마검의 눈', '죽음 이후에도 공격 3회 가능! 마검의 저항은 비활성화됩니다.');
+              } else if (sword17DeathEyeAttacksLeft > 0) {
+                hp = 1;
+              } else {
+                return false;
+              }
+              restorePlayerControlAfterSwordSurvival();
+              return true;
+            }
+
+            if (level === 18 && sword18LastStandLeft > 0) {
+              sword18LastStandLeft--;
+              hp = 1;
+              addLog('ability', `⚔️ 진·엑스칼리버 최후의 저항! 남은 ${sword18LastStandLeft}회`);
+              showAbility('⚔️ 최후의 저항!', `체력 1로 버텼다! 남은 ${sword18LastStandLeft}회`);
+              restorePlayerControlAfterSwordSurvival();
+              return true;
+            }
+
+            if (level === 19 && sword19RevivesLeft > 0) {
+              sword19RevivesLeft--;
+              hp = Math.max(1, Math.floor(maxHp * 0.75));
+              addLog('ability', `♾️ 불멸! 최대 체력 75%로 부활 · 남은 ${sword19RevivesLeft}회`);
+              showAbility('♾️ 불멸의 무라마사!', `체력 75%로 부활! 남은 ${sword19RevivesLeft}회`);
+              restorePlayerControlAfterSwordSurvival();
+              return true;
+            }
+            return false;
+          }
+
+          async function beginSwordTranscendTurn() {
+            if (playerClass !== 'sword' || level < 11 || level > 20 || !enemy) return false;
+
+            if (level === 11) {
+              if (playerTurnCount === 3 && !sword11DamageBuff) {
+                sword11DamageBuff = true;
+                await showAbility('👑 신의 명령', '공격 데미지 +30%를 획득했다!');
+                addLog('ability', '천명 1단계: 신의 명령 · 공격력 +30%');
+              }
+              if (playerTurnCount === 6 && !sword11ShieldGranted) {
+                sword11ShieldGranted = true;
+                playerShield += 200;
+                await showAbility('🛡️ 신의 하사', `보호막 200 획득! 현재 보호막 ${playerShield}`);
+                addLog('ability', '천명 2단계: 신의 하사 · 보호막 +200');
+              }
+              if (playerTurnCount === 9 && !sword11DestinyUsed && enemy.hp > 0) {
+                sword11DestinyUsed = true;
+                enemy.hp = 0;
+                await playFx('kill');
+                await showAbility('👑 천명', '신의 뜻으로 대상을 즉사시켰다!');
+                addLog('ability', '천명 3단계: 대상 즉사');
+                updateHPBars();
+                if (await resolveEnemyDeathFromMageSkill('천명')) return true;
+              }
+            }
+
+            if (level === 13 && enemy.hp > 0) {
+              const raw = Math.max(1, Math.floor(enemy.hp * 0.05));
+              const actual = dmgEnemy(raw, { bypassShield: true });
+              if (actual > 0) {
+                playerShield += actual;
+                await showAbility('🛡️ 합병', `상대 현재 체력 5% 흡수: ${actual} 피해 → 보호막 +${actual}`);
+                addLog('ability', `합병: ${actual} 흡수 · 보호막 ${playerShield}`);
+                updateHPBars();
+                updateStatusIcons();
+                if (await resolveEnemyDeathFromMageSkill('합병')) return true;
+              }
+            }
+
+            if (level === 17 && !sword17DeathEyeActive) {
+              const triggered = [];
+              if (rand() < 0.04) {
+                const raw = Math.max(1, Math.floor(Math.max(1, hp) * 0.10));
+                const actual = dmgPlayer(raw);
+                triggered.push(`부패 ${actual}`);
+              }
+              if (rand() < 0.04) { playerFall = true; triggered.push('타락'); }
+              if (rand() < 0.04) { playerCursed = Math.min(2, playerCursed + 1); triggered.push(`저주${playerCursed}`); }
+              if (rand() < 0.04) { playerSealed = true; triggered.push('봉인'); }
+              if (rand() < 0.04) { hp = 0; triggered.push('즉사'); }
+              if (triggered.length) {
+                await showAbility('🩸 마검의 저항', `자신에게 ${triggered.join(' · ')} 발동!`);
+                addLog('ability', `마검의 저항: ${triggered.join(', ')}`);
+                updateHPBars();
+                updateStatusIcons();
+              }
+              if (hp <= 0) {
+                endBattle(false, '마검의 저항 즉사');
+                return true;
+              }
+            }
+            return false;
+          }
+
+          async function finishSword17DeathEyeAttack() {
+            if (playerClass !== 'sword' || level !== 17 || !sword17DeathEyeActive) return false;
+            sword17DeathEyeAttacksLeft = Math.max(0, sword17DeathEyeAttacksLeft - 1);
+            hp = 1;
+            updateHPBars();
+            updateStatusIcons();
+            if (sword17DeathEyeAttacksLeft <= 0) {
+              sword17DeathEyeActive = false;
+              hp = 0;
+              await showAbility('👁️ 마검의 눈 종료', '죽음 이후의 마지막 공격을 마쳤다.');
+              endBattle(false, '마검의 눈 종료');
+              return true;
+            }
+            addLog('ability', `마검의 눈: 남은 공격 ${sword17DeathEyeAttacksLeft}회`);
+            return false;
+          }
+
+          """
+          if 'async function beginSwordTranscendTurn()' not in s:
+              rep(anchor, helpers + anchor)
+
+          # 10) 턴 시작 검사 패시브 호출
+          old = """async function beginPlayerActionTurn() {
+            playerTurnCount++;
+
+            if (playerClass === 'mage' && level === 13) {"""
+          new = """async function beginPlayerActionTurn() {
+            playerTurnCount++;
+
+            if (await beginSwordTranscendTurn()) return true;
+
+            if (playerClass === 'mage' && level === 13) {"""
+          rep(old, new)
+
+          # 11) 일반 공격 데미지: +11 영구30%, +15 잃은HP 비례
+          old = """  if (playerClass === 'mage' && level === 12 && mage12BuffStacks > 0) {
+              dmg = Math.round(dmg * (1 + mage12BuffStacks * 0.15));
+            }
+            if (playerCursed > 0) dmg = Math.floor(dmg * Math.pow(0.7, playerCursed));"""
+          new = """  if (playerClass === 'mage' && level === 12 && mage12BuffStacks > 0) {
+              dmg = Math.round(dmg * (1 + mage12BuffStacks * 0.15));
+            }
+            if (playerClass === 'sword' && level === 11 && sword11DamageBuff) {
+              dmg = Math.round(dmg * 1.30);
+            }
+            if (playerClass === 'sword' && level === 15) {
+              const lostRatio = maxHp > 0 ? clamp((maxHp - Math.max(0, hp)) / maxHp, 0, 1) : 0;
+              dmg = Math.round(dmg * (1 + lostRatio));
+            }
+            if (playerCursed > 0) dmg = Math.floor(dmg * Math.pow(0.7, playerCursed));"""
+          rep(old, new)
+
+          # 12) +16 다음 실제 공격은 2연타
+          old = """  let doubleHit = false;
+            if (canAbility && abilityW.double && rand() < abilityW.double) {
+              doubleHit = true;
+              await showAbility('⚡ 이중 공격!', '한 턴에 공격 두 번!');
+              logMsg = `이중 공격! ${dmg} x2`;
+            }"""
+          new = """  let doubleHit = false;
+            if (playerClass === 'sword' && level === 16 && sword16DoubleNext) {
+              sword16DoubleNext = false;
+              doubleHit = true;
+              await showAbility('🌙 월광 2연격!', '월광봉멸의 힘으로 이번 공격은 2연타!');
+              logMsg = `월광 2연격! ${dmg} x2`;
+            } else if (canAbility && abilityW.double && rand() < abilityW.double) {
+              doubleHit = true;
+              await showAbility('⚡ 이중 공격!', '한 턴에 공격 두 번!');
+              logMsg = `이중 공격! ${dmg} x2`;
+            }"""
+          rep(old, new)
+
+          # 13) +19 공격 후 현재HP 2% 화상, +17 사후 공격 카운트
+          old = """    } // boss ignore else
+            }
+            if (fireTurns > 0) {"""
+          new = """    } // boss ignore else
+            }
+            if (playerClass === 'sword' && level === 19 && !fallSelf && enemy && enemy.hp > 0 && dealtToEnemy > 0) {
+              const burnRaw = Math.max(1, Math.floor(enemy.hp * 0.02));
+              const burnActual = dmgEnemy(burnRaw);
+              if (burnActual > 0) {
+                dealtToEnemy += burnActual;
+                await showAbility('🔥 무라마사 화상', `상대 현재 체력 2% · ${burnActual} 추가 피해!`);
+                addLog('ability', `무라마사 화상 ${burnActual}`);
+              }
+            }
+            if (fireTurns > 0) {"""
+          rep(old, new)
+
+          # 적 사망 체크 직전에 +17 사후 공격 횟수 차감. 적을 죽였으면 승리가 우선.
+          old = """  if (enemy.hp <= 0) {
+              if (await tryBossTransform()) {"""
+          # 첫 occurrence는 playerAttack의 적 사망 처리
+          new = """  if (enemy.hp <= 0) {
+              if (await tryBossTransform()) {"""
+          # 구조 유지; 차감은 적 생존이 확정된 뒤 삽입
+          target = """  // 마비로 적 턴 스킵. 실시간에서는 상태를 상대에게 넘겨 상대 클라이언트가 자기 턴을 스킵한다.
+            if (enemyParalyzed) {"""
+          insert = """  if (await finishSword17DeathEyeAttack()) return;
+
+            // 마비로 적 턴 스킵. 실시간에서는 상태를 상대에게 넘겨 상대 클라이언트가 자기 턴을 스킵한다.
+            if (enemyParalyzed) {"""
+          rep(target, insert)
+
+          # 14) +16 반사: 일반 적은 enemyFallSelf에 전용 반사 플래그 포함
+          old = """  let enemyFallSelf = false;
+            if (enemyFall) {
+              enemyFall = false;
+              enemyFallSelf = true;
+              await showAbility('😈 타락 발동!', '적 공격과 능력이 적에게로!');
+            }"""
+          new = """  let enemyFallSelf = false;
+            if (sword16ReflectNext && playerClass === 'sword' && level === 16) {
+              sword16ReflectNext = false;
+              enemyFall = false;
+              enemyFallSelf = true;
+              await showAbility('🌙 월광봉멸 반사!', '상대의 공격과 능력을 그대로 반사!');
+              addLog('ability', '월광봉멸: 상대 공격 반사');
+            } else if (enemyFall) {
+              enemyFall = false;
+              enemyFallSelf = true;
+              await showAbility('😈 타락 발동!', '적 공격과 능력이 적에게로!');
+            }"""
+          rep(old, new)
+
+          # 15) 보스 공격에도 +16 반사 적용
+          old = """    // 4) 데미지
+              let actual = 0;
+              if (!bossDodged) {
+                if (mage18EnemyTurnNormalImmune && !usedSkill) {"""
+          new = """    // 4) 데미지
+              let actual = 0;
+              const sword16BossReflect = sword16ReflectNext && playerClass === 'sword' && level === 16;
+              if (sword16BossReflect) sword16ReflectNext = false;
+              if (!bossDodged) {
+                if (sword16BossReflect) {
+                  actual = dmgEnemy(dmg);
+                  addLog('ability', `🌙 월광봉멸 반사! 보스에게 ${actual} 피해`);
+                  await showAbility('🌙 월광봉멸 반사!', `상대 공격 ${actual} 피해를 되돌렸다!`);
+                  if (bossDoubleHit && enemy.hp > 0) {
+                    const actual2 = dmgEnemy(dmg);
+                    actual += actual2;
+                    addLog('ability', `월광봉멸 이중공격 반사 2타 ${actual2}`);
+                  }
+                } else if (mage18EnemyTurnNormalImmune && !usedSkill) {"""
+          rep(old, new)
+
+          # 위 분기 닫힘 보정: 기존 else 구조에 sword16BossReflect 분기 하나 추가됐으므로 lifesteal은 반사 때 제외
+          old = """      if (enemy.lifestealOnHit && actual > 0) {
+                const heal = Math.floor(actual * enemy.lifestealOnHit);"""
+          new = """      if (!sword16BossReflect && enemy.lifestealOnHit && actual > 0) {
+                const heal = Math.floor(actual * enemy.lifestealOnHit);"""
+          rep(old, new)
+
+          # 보스 반사로 보스가 죽었을 때 즉시 승패/페이즈 처리
+          old = """    updateHPBars();
+              updateStatusIcons();
+              updateBossBattleUI();
+
+              // 플레이어 사망 처리"""
+          new = """    updateHPBars();
+              updateStatusIcons();
+              updateBossBattleUI();
+
+              if (enemy.hp <= 0) {
+                if (await tryBossTransform()) {
+                  updateHPBars();
+                  $('atk-btn').disabled = false;
+                  if (autoMode) scheduleAutoAttack(400);
+                  return;
+                }
+                endBattle(true, '월광봉멸 반사');
+                return;
+              }
+
+              // 플레이어 사망 처리"""
+          rep(old, new)
+
+          # 16) 검사 스킬 구현. +20 마법사 선택창은 마법사에게만.
+          old = """  if (level === 20) {
+              if (canUseMageSkillNow()) openMage20Choice();
+              return;
+            }
+            if (!canUseMageSkillNow()) return;"""
+          new = """  if (playerClass === 'mage' && level === 20) {
+              if (canUseMageSkillNow()) openMage20Choice();
+              return;
+            }
+            if (!canUseMageSkillNow()) return;"""
+          rep(old, new)
+
+          # useMageSkill 내부의 turnUsed 이후에 검사 분기 삽입
+          old = """    const turnUsed = playerTurnCount;
+              mageSkillNextReadyTurn = turnUsed + info.cooldown;
+
+              if (level === 12) {"""
+          new = """    const turnUsed = playerTurnCount;
+              mageSkillNextReadyTurn = turnUsed + info.cooldown;
+
+              if (playerClass === 'sword') {
+                if (level === 12 && info.name === '참살쇄도') {
+                  sword12SlashUsed = true;
+                  const hit = Math.max(1, Math.round(105 * 0.70));
+                  await showAbility('⚔️ 참살쇄도!', `${hit} 피해 × 3연타!`);
+                  for (let i = 1; i <= 3; i++) {
+                    const actual = dmgEnemy(hit);
+                    addLog('ability', `참살쇄도 ${i}타: ${actual} 피해`);
+                    updateHPBars();
+                    if (await resolveEnemyDeathFromMageSkill('참살쇄도')) return;
+                  }
+                } else if (level === 12 && info.name === '휘몰아치는 칼날') {
+                  sword12TornadoUsed = true;
+                  await playSwordTornadoFx();
+                  const raw = Math.max(1, Math.round(105 * 2.50));
+                  const actual = dmgEnemy(raw);
+                  await showAbility('🌪️ 휘몰아치는 칼날!', `토네이도 참격! 공격력 250% · ${actual} 피해`);
+                  addLog('ability', `휘몰아치는 칼날: ${actual} 피해`);
+                } else if (level === 14) {
+                  let instantSucceeded = false;
+                  if (rand() < 0.35) {
+                    if (await applyBossUndying('흑악신멸')) {
+                      instantSucceeded = false;
+                    } else {
+                      instantSucceeded = true;
+                      enemy.hp = 0;
+                      await playFx('kill');
+                      await showAbility('⚫ 흑악신멸!', '35% 신살 발동! 대상을 즉사시켰다!');
+                      addLog('ability', '흑악신멸: 즉사 성공');
+                    }
+                  }
+                  if (!instantSucceeded) {
+                    const raw = Math.max(1, Math.floor(enemy.maxHp * 0.65));
+                    const actual = dmgEnemy(raw);
+                    await showAbility('⚫ 흑악신멸!', `즉사 불발 → 상대 최대 체력 65% · ${actual} 피해!`);
+                    addLog('ability', `흑악신멸 대체 피해: ${actual}`);
+                  }
+                } else if (level === 16) {
+                  sword16ReflectNext = true;
+                  sword16DoubleNext = true;
+                  await showAbility('🌙 월광봉멸!', '다음 상대 공격 반사 · 다음 내 공격 2연타!');
+                  addLog('ability', '월광봉멸: 반사 대기 + 다음 공격 2연타');
+                  if (rand() < 0.15) {
+                    enemy.hp = 0;
+                    await playFx('seal');
+                    await showAbility('🔒 월광 봉인!', '15% 봉인 발동! 상대 즉사');
+                    addLog('ability', '월광봉멸: 봉인 성공');
+                  }
+                } else if (level === 20) {
+                  sword20SkillUsed = true;
+                  mageSkillNextReadyTurn = 999999;
+                  if (rand() < 0.50) {
+                    enemy.hp = 0;
+                    enemy.undying = false;
+                    enemy.revived = true;
+                    enemyLastStandUsed = true;
+                    await playFx('kill');
+                    await showAbility('☄️ 종언', '50% 종언 발동! 회피·보호막·불사를 무시하고 반드시 즉사!');
+                    addLog('ability', '종언: 반드시 즉사 성공');
+                  } else {
+                    const actual = dmgEnemy(10000);
+                    await playFx('chamgyeok');
+                    await showAbility('☄️ 종언', `즉사 불발 → 10,000 피해! 실제 ${actual} 피해`);
+                    addLog('ability', `종언: 10,000 피해 (실피해 ${actual})`);
+                  }
+                }
+
+                updateHPBars();
+                updateStatusIcons();
+                updateMageSkillButton();
+                if (await resolveEnemyDeathFromMageSkill(info.name)) return;
+                await enemyAttack();
+                return;
+              }
+
+              if (level === 12) {"""
+          rep(old, new)
+
+          # 17) 패배 처리 앞에 검사 생존기
+          old = """function endBattle(win, reason) {
+            if (!win && tryMage19CheckpointRevive(reason)) return;
+            if (!win && offerMage14DeathRequiem(reason)) return;"""
+          new = """function endBattle(win, reason) {
+            if (!win && trySwordTranscendSurvival(reason)) return;
+            if (!win && tryMage19CheckpointRevive(reason)) return;
+            if (!win && offerMage14DeathRequiem(reason)) return;"""
+          rep(old, new)
+
+          # 18) 전투 중 사망 처리에서 +18/+19가 기존 일반 부활보다 먼저 동작하도록 곳곳의 endBattle가 최종 안전망 역할.
+          # 공격 버튼 잠김 안전장치도 같이 강화
+          old = """  } finally {
+              playerAttackLock = false;
+              updateMageSkillButton();
+            }
+          }
+
+          async function enemyAttack() {"""
+          new = """  } finally {
+              playerAttackLock = false;
+              if (!battleEnded && !rtActive) {
+                try { if ($('atk-btn')) $('atk-btn').disabled = false; } catch (e) {}
+              }
+              updateMageSkillButton();
+            }
+          }
+
+          async function enemyAttack() {"""
+          rep(old, new)
+
+          p.write_text(s, encoding='utf-8')
+          print('patched index.html', len(s))
+
+      - name: JavaScript syntax check
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path('index.html').read_text(encoding='utf-8')
+          scripts=re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>',s,re.S)
+          inline='\n'.join(x for x in scripts if x.strip())
+          Path('/tmp/check.js').write_text(inline,encoding='utf-8')
+          print('inline script chars',len(inline))
+          PY
+          node --check /tmp/check.js
+
+      - name: Verify sword transcend markers
+        shell: bash
+        run: |
+          grep -q "const SWORD_TRANSCEND_WEAPONS" index.html
+          grep -q "name: '천명의 신검', atk: 85" index.html
+          grep -q "name: '참살쇄도', atk: 105" index.html
+          grep -q "name: '안슐루스', atk: 130" index.html
+          grep -q "name: '신살흑도', atk: 145" index.html
+          grep -q "name: '적월도', atk: 180" index.html
+          grep -q "name: '명월도', atk: 200" index.html
+          grep -q "name: '마검 데스티니', atk: 225" index.html
+          grep -q "name: '진·엑스칼리버', atk: 300" index.html
+          grep -q "name: '불멸의 무라마사', atk: 420" index.html
+          grep -q "name: '살신명도·종언', atk: 500" index.html
+          grep -q "async function beginSwordTranscendTurn" index.html
+          grep -q "async function playSwordTornadoFx" index.html
+          grep -q "function trySwordTranscendSurvival" index.html
+
+      - name: Commit implementation
+        shell: bash
+        run: |
+          git config user.name "ChatGPT"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git diff --cached --quiet && exit 0
+          git commit -m "Implement sword transcend levels 11-20"
+          git push origin HEAD:feat/sword-transcend-11-20-20260822
