@@ -17,13 +17,22 @@ jobs:
           ref: feat/sword-transcend-11-20-20260822
           fetch-depth: 0
 
-      - name: Apply robust patch
+      - name: Apply robust base patch
         shell: bash
         run: |
           if grep -q "const SWORD_TRANSCEND_WEAPONS = Object.freeze" index.html; then
-            echo "Sword transcend patch already applied"
+            echo "Sword transcend base patch already applied"
           else
             python .github/sword_patch_v2.py
+          fi
+
+      - name: Apply interaction fixes
+        shell: bash
+        run: |
+          if grep -q "let sword16ReflectPending = false" index.html; then
+            echo "Sword interaction follow-up already applied"
+          else
+            python .github/sword_followup.py
           fi
 
       - name: Validate JavaScript and mechanics
@@ -36,6 +45,9 @@ jobs:
           inline='\n'.join(x for x in re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>',s,re.S) if x.strip())
           Path('/tmp/check.js').write_text(inline,encoding='utf-8')
           print('inline JS chars', len(inline))
+          assert 'sword16ReflectEnemyTurn' not in s
+          assert "rand() < 0.35 && !bossIsUndying()" in s
+          assert 'sword16ReflectPending = true;' in s
           PY
           node --check /tmp/check.js
           grep -q "name: '천명의 신검', atk: 85" index.html
@@ -63,5 +75,5 @@ jobs:
             echo "No index change to commit"
             exit 0
           fi
-          git commit -m "Implement sword +11 to +20 transcend skills"
+          git commit -m "Harden sword transcend interactions"
           git push origin HEAD:feat/sword-transcend-11-20-20260822
