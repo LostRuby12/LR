@@ -1,23 +1,29 @@
 name: Setup story boss unlocks
 
 on:
-  push:
+  pull_request:
     branches: [main]
+    types: [opened, synchronize]
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   patch:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
       - name: Add story progress and boss unlock gates
         run: |
           python - <<'PY'
           from pathlib import Path
           p = Path('index.html')
           s = p.read_text(encoding='utf-8')
+          if 'const STORY_CHAPTER_META = Object.freeze({' in s:
+              raise SystemExit(0)
 
           old = "    raidChance50Unlocked: false,\n    shop: { goldNick: false, assassin: false, priest: false, archer: false },"
           new = "    raidChance50Unlocked: false,\n    story: {\n      stages: { earth1: 0, delta1: 0, ancient1: 0, future1: 0, earth2: 0, demon1: 0, heaven1: 0, space1: 0, void: 0 },\n      clearedChapters: {}\n    },\n    shop: { goldNick: false, assassin: false, priest: false, archer: false },"
@@ -125,10 +131,11 @@ function openRaidBossMode() {'''
           Path('/tmp/lr.js').write_text('\n'.join(scripts), encoding='utf-8')
           PY
           node --check /tmp/lr.js
-      - name: Commit boss unlock setup
+      - name: Commit patch to PR branch
         run: |
+          if git diff --quiet; then exit 0; fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
           git commit -m "Gate raid bosses behind story chapters"
-          git push
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
