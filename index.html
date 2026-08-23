@@ -1045,6 +1045,10 @@ function defaultSaveData(nick) {
     redeemedCodes: {},
     attendance: { lastDate: '', streak: 0, total: 0 },
     raidChance50Unlocked: false,
+    story: {
+      stages: { earth1: 0, delta1: 0, ancient1: 0, future1: 0, earth2: 0, demon1: 0, heaven1: 0, space1: 0, void: 0 },
+      clearedChapters: {}
+    },
     shop: { goldNick: false, assassin: false, priest: false, archer: false },
     missions: {
       day: '',
@@ -2773,6 +2777,69 @@ function getSuccessRate(lv) {
 }
 
 
+const STORY_CHAPTER_META = Object.freeze({
+  earth1:   Object.freeze({ name: '지구 1', stages: 5 }),
+  delta1:   Object.freeze({ name: '델타 1', stages: 7 }),
+  ancient1: Object.freeze({ name: '고대 1', stages: 8 }),
+  future1:  Object.freeze({ name: '미래 1', stages: 8 }),
+  earth2:   Object.freeze({ name: '지구 2', stages: 8 }),
+  demon1:   Object.freeze({ name: '마계 1', stages: 8 }),
+  heaven1:  Object.freeze({ name: '천계 1', stages: 9 }),
+  space1:   Object.freeze({ name: '우주 1', stages: 10 }),
+  void:     Object.freeze({ name: '공허', stages: 10 })
+});
+
+function ensureStoryProgress() {
+  if (!saveData.story || typeof saveData.story !== 'object') saveData.story = {};
+  if (!saveData.story.stages || typeof saveData.story.stages !== 'object') saveData.story.stages = {};
+  if (!saveData.story.clearedChapters || typeof saveData.story.clearedChapters !== 'object') saveData.story.clearedChapters = {};
+  Object.keys(STORY_CHAPTER_META).forEach(id => {
+    const meta = STORY_CHAPTER_META[id];
+    const cleared = Math.max(0, Math.min(meta.stages, Math.floor(Number(saveData.story.stages[id]) || 0)));
+    saveData.story.stages[id] = cleared;
+    if (cleared >= meta.stages) saveData.story.clearedChapters[id] = true;
+  });
+  return saveData.story;
+}
+
+function storyChapterCleared(id) {
+  const story = ensureStoryProgress();
+  const meta = STORY_CHAPTER_META[id];
+  if (!meta) return false;
+  return !!story.clearedChapters[id] || Number(story.stages[id] || 0) >= meta.stages;
+}
+
+function raidBossUnlocked(id) {
+  if (id === 'ancient_mage') return storyChapterCleared('ancient1');
+  if (id === 'fallen_god') return storyChapterCleared('demon1');
+  return false;
+}
+
+function raidBossUnlockText(id) {
+  if (id === 'ancient_mage') return '고대 1 클리어 시 해금';
+  if (id === 'fallen_god') return '마계 1 클리어 시 해금';
+  return '스토리 진행 필요';
+}
+
+function refreshRaidBossLocks() {
+  ensureStoryProgress();
+  const rows = [
+    ['ancient_mage', 'raid-boss-mage', '마법사로 도전 시<br>최대 강화 +20'],
+    ['fallen_god', 'raid-boss-god', '검사로 도전 시<br>최대 강화 +20']
+  ];
+  rows.forEach(([id, elId, openDesc]) => {
+    const el = $(elId);
+    if (!el) return;
+    const unlocked = raidBossUnlocked(id);
+    el.style.opacity = unlocked ? '1' : '0.42';
+    el.style.filter = unlocked ? '' : 'grayscale(0.85)';
+    el.style.cursor = unlocked ? 'pointer' : 'not-allowed';
+    el.setAttribute('aria-disabled', unlocked ? 'false' : 'true');
+    const desc = el.querySelector('.class-desc');
+    if (desc) desc.innerHTML = unlocked ? openDesc : `🔒 ${raidBossUnlockText(id)}`;
+  });
+}
+
 // ========== 이벤트 ==========
 function openRaidBossMode() {
   if (!requireLogin()) return;
@@ -2780,6 +2847,7 @@ function openRaidBossMode() {
     alert('먼저 직업을 선택하세요!');
     return;
   }
+  ensureStoryProgress();
   selectedRaidBossId = null;
   pendingRaidBoss = false;
   document.querySelectorAll('#raid-boss-mage, #raid-boss-god').forEach(c => c.classList.remove('selected'));
@@ -2787,10 +2855,15 @@ function openRaidBossMode() {
   if (lab) lab.textContent = '';
   const btn = $('raid-start-btn');
   if (btn) btn.disabled = true;
+  refreshRaidBossLocks();
   showScreen('raid-pick-screen');
 }
 function selectRaidBoss(id) {
   if (!RAID_BOSSES[id]) return;
+  if (!raidBossUnlocked(id)) {
+    alert(`🔒 ${RAID_BOSSES[id].name} 도전은 ${raidBossUnlockText(id)}됩니다.`);
+    return;
+  }
   selectedRaidBossId = id;
   document.querySelectorAll('#raid-boss-mage, #raid-boss-god').forEach(c => c.classList.remove('selected'));
   if (id === 'ancient_mage') {
@@ -2807,6 +2880,14 @@ function selectRaidBoss(id) {
 function confirmRaidBoss() {
   if (!selectedRaidBossId || !RAID_BOSSES[selectedRaidBossId]) {
     alert('보스를 선택하세요!');
+    return;
+  }
+  if (!raidBossUnlocked(selectedRaidBossId)) {
+    alert(`🔒 ${RAID_BOSSES[selectedRaidBossId].name} 도전은 ${raidBossUnlockText(selectedRaidBossId)}됩니다.`);
+    selectedRaidBossId = null;
+    refreshRaidBossLocks();
+    const btn = $('raid-start-btn');
+    if (btn) btn.disabled = true;
     return;
   }
   if (!playerClass) {
