@@ -193,3 +193,5 @@ if n != 1:
     raise SystemExit(f'openStory/renderStory replacement count={n}')
 
 p.write_text(s, encoding='utf-8')
+
+# trigger one-shot apply
