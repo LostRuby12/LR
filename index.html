@@ -2719,6 +2719,7 @@ function dmgEnemy(amount, options) {
 
 function updateStatusIcons() {
   const pIcons = [];
+  const eIcons = [];
   if (playerParalyzed) pIcons.push('💫마비');
   if (playerFall) pIcons.push('😈타락');
   if (enemy.fireTurns && enemy.fireTurns > 0) pIcons.push('🔥화염' + enemy.fireTurns);
@@ -2747,7 +2748,6 @@ function updateStatusIcons() {
   if (assassinEnemyBleeding) eIcons.push('🩸출혈');
   if ($('p-status')) $('p-status').textContent = pIcons.join(' ');
 
-  const eIcons = [];
   if (enemyParalyzed) eIcons.push('💫마비');
   if (enemyFall) eIcons.push('😈타락');
   if (fireTurns > 0) eIcons.push('🔥화염' + fireTurns);
