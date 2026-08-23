@@ -1,21 +1,17 @@
 name: Setup story boss unlocks
 
 on:
-  pull_request:
+  push:
     branches: [main]
-    types: [opened, synchronize]
 
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
   patch:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.ref }}
       - name: Add story progress and boss unlock gates
         run: |
           python - <<'PY'
@@ -131,11 +127,11 @@ function openRaidBossMode() {'''
           Path('/tmp/lr.js').write_text('\n'.join(scripts), encoding='utf-8')
           PY
           node --check /tmp/lr.js
-      - name: Commit patch to PR branch
+      - name: Commit patch to main
         run: |
           if git diff --quiet; then exit 0; fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
           git commit -m "Gate raid bosses behind story chapters"
-          git push origin HEAD:${{ github.event.pull_request.head.ref }}
+          git push
