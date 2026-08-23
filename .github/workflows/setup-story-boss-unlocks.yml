@@ -3,8 +3,6 @@ name: Setup story boss unlocks
 on:
   push:
     branches: [main]
-    paths:
-      - '.github/workflows/setup-story-boss-unlocks.yml'
 
 permissions:
   contents: write
@@ -134,5 +132,3 @@ function openRaidBossMode() {'''
           git add index.html
           git commit -m "Gate raid bosses behind story chapters"
           git push
-
-# trigger
