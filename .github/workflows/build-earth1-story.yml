@@ -1,0 +1,273 @@
+name: Build Earth 1 story
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/build-earth1-story.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Earth 1 campaign
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+
+          # 메인 스토리는 직업 선택/강화가 아니라 챕터 화면으로 바로 진입
+          s = s.replace("onclick=\"openModeClassSelect('story')\"", "onclick=\"openStory()\"")
+
+          story_block = r'''let storyBattleStage = null;
+
+const EARTH1_STAGES = Object.freeze({
+  1: Object.freeze({
+    title: '폭풍전야', storyOnly: true,
+    summary: '킬 오브 킹 흑색부대에 B.S.H 생포 명령이 떨어진다.'
+  }),
+  2: Object.freeze({
+    title: '외각 기습', playerClass: 'assassin', playerLevel: 1,
+    enemyName: '뱀의 둥지 외곽 경비병', enemyHp: 90, enemyAtk: 14,
+    enemyWeapon: '경비용 철검',
+    summary: '암살 단검으로 외곽 경비병을 조용히 처리한다.'
+  }),
+  3: Object.freeze({
+    title: '뱀의 소굴', playerClass: 'assassin', playerLevel: 1,
+    enemyName: '뱀의 둥지 전투원 무리', enemyHp: 125, enemyAtk: 17,
+    enemyWeapon: '뱀의 단검',
+    summary: '시설 내부로 진입해 하급 전투원들을 정리한다.'
+  }),
+  4: Object.freeze({
+    title: '길을 막는자', playerClass: 'assassin', playerLevel: 2,
+    enemyName: '뱀의 둥지 중간 간부', enemyHp: 190, enemyAtk: 24,
+    enemyWeapon: '뱀의 장검',
+    summary: '중간 간부가 길을 막는다. 침묵의 검으로 돌파한다.'
+  }),
+  5: Object.freeze({
+    title: '생포', playerClass: 'sword', playerLevel: 1,
+    enemyName: 'B.S.H', enemyHp: 160, enemyAtk: 18,
+    enemyWeapon: '외교단 호신검', capture: true,
+    summary: '살해 금지. 목검으로 B.S.H를 기절시켜 생포한다.'
+  })
+});
+
+function openStory() {
+  if (!requireLogin()) return;
+  ensureStoryProgress();
+  renderStory();
+  showScreen('story-screen');
+}
+
+function renderStory() {
+  const el = $('story-list');
+  if (!el) return;
+  const story = ensureStoryProgress();
+  const cleared = Math.max(0, Math.min(5, Number(story.stages.earth1) || 0));
+
+  const stageHtml = Object.keys(EARTH1_STAGES).map(k => {
+    const no = Number(k);
+    const st = EARTH1_STAGES[no];
+    const done = no <= cleared;
+    const unlocked = no <= cleared + 1;
+    const weapon = st.storyOnly ? '스토리' : (st.playerClass === 'assassin'
+      ? `+${st.playerLevel} ${st.playerLevel === 1 ? '암살 단검' : '침묵의 검'}`
+      : '+1 목검');
+    return `<button class="btn" ${unlocked ? `onclick="playEarth1Stage(${no})"` : 'disabled'} style="text-align:left;padding:12px 14px;${done ? 'border:1px solid #75ffad;' : ''}">
+      <div style="font-weight:900;">${done ? '✅' : (unlocked ? '▶️' : '🔒')} 1-${no} ${st.title}</div>
+      <div style="font-size:0.82rem;opacity:0.82;margin-top:4px;">${st.summary}</div>
+      <div style="font-size:0.78rem;color:#ffd700;margin-top:4px;">${weapon}</div>
+    </button>`;
+  }).join('');
+
+  const chapterRows = [
+    ['델타 1', 7], ['고대 1', 8], ['미래 1', 8], ['지구 2', 8],
+    ['마계 1', 8], ['천계 1', 9], ['우주 1', 10], ['공허', 10]
+  ].map(([name, count]) => `<div style="opacity:0.42;background:rgba(0,0,0,0.28);border:1px solid #555;border-radius:12px;padding:12px;margin:8px 0;">
+    🔒 <b>${name}</b> <span style="float:right;font-size:0.8rem;">${count} STAGE</span><br>
+    <span style="font-size:0.8rem;">아직 진입할 수 없습니다.</span>
+  </div>`).join('');
+
+  el.innerHTML = `
+    <div style="background:linear-gradient(145deg,rgba(70,20,20,.75),rgba(20,20,45,.9));border:1px solid #8a4444;border-radius:14px;padding:14px;margin-bottom:12px;">
+      <div style="font-size:1.2rem;font-weight:900;color:#ffd700;">🌍 지구 1</div>
+      <div style="font-size:0.85rem;opacity:.85;margin-top:5px;">킬 오브 킹 흑색부대 · 뱀의 둥지 침투 작전</div>
+      <div style="font-size:0.8rem;margin-top:5px;color:#9effb9;">진행 ${cleared}/5</div>
+    </div>
+    ${stageHtml}
+    <div style="margin:18px 0 8px;font-weight:900;color:#aaa;">다음 챕터</div>
+    ${chapterRows}
+    <div style="font-size:0.76rem;opacity:.62;margin-top:10px;line-height:1.5;">고대 1 클리어 → 고대 마법사 보스 해금<br>마계 1 클리어 → 몰락한 신 보스 해금</div>`;
+}
+
+function showStoryScene(title, lines, onDone) {
+  let idx = 0;
+  const old = $('story-scene-overlay');
+  if (old) old.remove();
+  const box = document.createElement('div');
+  box.id = 'story-scene-overlay';
+  box.style.cssText = 'position:absolute;inset:0;z-index:1200;background:rgba(4,4,12,.96);display:flex;align-items:center;justify-content:center;padding:24px;';
+  box.innerHTML = `<div style="width:100%;max-width:430px;background:#151528;border:1px solid #6554a5;border-radius:18px;padding:22px;box-shadow:0 0 35px #000;">
+    <div id="story-scene-title" style="font-size:1.25rem;font-weight:900;color:#ffd700;margin-bottom:18px;"></div>
+    <div id="story-scene-text" style="min-height:120px;white-space:pre-line;line-height:1.75;font-size:1rem;"></div>
+    <button id="story-scene-next" class="btn" style="margin-top:18px;">다음</button>
+  </div>`;
+  $('app').appendChild(box);
+  $('story-scene-title').textContent = title;
+  const paint = () => {
+    $('story-scene-text').textContent = lines[idx] || '';
+    $('story-scene-next').textContent = idx >= lines.length - 1 ? '계속' : '다음';
+  };
+  $('story-scene-next').onclick = () => {
+    if (idx < lines.length - 1) { idx++; paint(); return; }
+    box.remove();
+    if (typeof onDone === 'function') onDone();
+  };
+  paint();
+}
+
+function completeEarth1Stage(stageNo) {
+  const story = ensureStoryProgress();
+  const current = Number(story.stages.earth1) || 0;
+  if (stageNo > current) story.stages.earth1 = Math.min(5, stageNo);
+  if (Number(story.stages.earth1) >= 5) story.clearedChapters.earth1 = true;
+  persistSave();
+}
+
+function playEarth1Stage(stageNo) {
+  ensureStoryProgress();
+  const cleared = Number(saveData.story.stages.earth1) || 0;
+  if (stageNo > cleared + 1) {
+    alert('앞 스테이지를 먼저 클리어하세요.');
+    return;
+  }
+  const st = EARTH1_STAGES[stageNo];
+  if (!st) return;
+
+  if (stageNo === 1) {
+    showStoryScene('1-1 폭풍전야', [
+      '킬 오브 킹 · 흑색부대 작전실.',
+      '작전 목표: 뱀의 둥지 외교단 부수장 B.S.H 생포.',
+      '이번 작전은 공식 기록에 남지 않는다.\n목표를 살려서 데려와라.',
+      '뱀의 둥지 외곽 경비 병력 확인.',
+      '작전 개시.'
+    ], () => {
+      completeEarth1Stage(1);
+      openStory();
+    });
+    return;
+  }
+
+  const intro = {
+    2: ['목표 시설 외곽.', '경비병이 접근한다.', '암살 단검으로 소리 없이 처리한다.'],
+    3: ['외곽 돌파 성공.', '내부 전투원들이 침입을 감지했다.', '뱀의 소굴 안쪽으로 진입한다.'],
+    4: ['B.S.H의 위치가 가까워졌다.', '뱀의 둥지 중간 간부가 길을 막는다.', '장비 교체: 침묵의 검.'],
+    5: ['목표 B.S.H 확인.', '명령 재확인: 살해 금지. 반드시 생포.', '살상 무기 해제. 장비 교체: 목검.']
+  }[stageNo];
+
+  showStoryScene(`1-${stageNo} ${st.title}`, intro, () => startEarth1Battle(stageNo));
+}
+
+function startEarth1Battle(stageNo) {
+  const st = EARTH1_STAGES[stageNo];
+  if (!st || st.storyOnly) return;
+  pendingPlayMode = 'story';
+  challengeMode = false;
+  pendingRaidBoss = false;
+  selectedRaidBossId = null;
+  gameMode = 'normal';
+  storyBattleStage = stageNo;
+  playerClass = st.playerClass;
+  level = st.playerLevel;
+  maxHp = getMaxHpForClassLevel(playerClass, level);
+  hp = maxHp;
+  chances = 0;
+  goBattle();
+}
+
+function storyHandleBattleEnd(win) {
+  const stageNo = Number(storyBattleStage) || 0;
+  if (!stageNo) return;
+  storyBattleStage = null;
+  if (!win) return;
+  completeEarth1Stage(stageNo);
+  if (stageNo === 5) {
+    setTimeout(() => {
+      showStoryScene('임무 성공 · 생포', [
+        '목검의 일격이 정확히 들어갔다.',
+        'B.S.H는 사망하지 않았다. 기절 상태 확인.',
+        '목표 확보. B.S.H를 데리고 철수한다.',
+        '지구 1 완료.'
+      ]);
+    }, 250);
+  }
+}
+
+function openBossMode() {'''
+
+          pat = re.compile(r"function openStory\(\) \{.*?\nfunction openBossMode\(\) \{", re.S)
+          s, n = pat.subn(story_block, s, count=1)
+          if n != 1:
+              raise SystemExit(f'openStory block replacement count={n}')
+
+          # goBattle에서 스토리 전용 적 생성
+          anchor = "  if (challengeMode && challengeEnemyData) {"
+          insert = r'''  if (storyBattleStage) {
+    const st = EARTH1_STAGES[storyBattleStage];
+    if (!st) {
+      alert('스토리 전투 데이터가 없습니다.');
+      storyBattleStage = null;
+      return;
+    }
+    gameMode = 'normal';
+    enemy = {
+      class: 'sword',
+      level: 0,
+      name: st.enemyName,
+      nick: st.enemyName,
+      hp: st.enemyHp,
+      maxHp: st.enemyHp,
+      weapon: { name: st.enemyWeapon, atk: st.enemyAtk, desc: '스토리 전용 장비' },
+      revived: false,
+      fireTurns: 0,
+      isStory: true,
+      storyStage: storyBattleStage
+    };
+  } else if (challengeMode && challengeEnemyData) {'''
+          if s.count(anchor) != 1:
+              raise SystemExit(f'goBattle anchor count={s.count(anchor)}')
+          s = s.replace(anchor, insert, 1)
+
+          # 전투 종료 시 스토리 진행 저장
+          pat_end = re.compile(r"((?:async\s+)?function endBattle\(win, reason\) \{\n)")
+          s, n = pat_end.subn(r"\1  if (storyBattleStage) storyHandleBattleEnd(!!win);\n", s, count=1)
+          if n != 1:
+              raise SystemExit(f'endBattle hook count={n}')
+
+          p.write_text(s, encoding='utf-8')
+          PY
+      - name: Syntax check
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          s = Path('index.html').read_text(encoding='utf-8')
+          scripts = re.findall(r'<script(?:[^>]*)>(.*?)</script>', s, flags=re.S)
+          Path('/tmp/lr.js').write_text('\n'.join(scripts), encoding='utf-8')
+          PY
+          node --check /tmp/lr.js
+      - name: Commit Earth 1
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git rm .github/workflows/build-earth1-story.yml
+          git commit -m "Build Earth 1 story campaign"
+          git push
