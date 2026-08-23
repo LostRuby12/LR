@@ -235,3 +235,5 @@ function openBossMode() {'''
           git add index.html
           git commit -m "Build main story chapter framework"
           git push
+
+# trigger
