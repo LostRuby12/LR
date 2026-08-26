@@ -8,33 +8,28 @@
 <meta http-equiv="Expires" content="0">
 <title>Lost Ruby</title>
 <style>
-html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#1a1a2e}
-#game{position:fixed;inset:0;width:100%;height:100%;border:0;display:block;background:#1a1a2e}
-#loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#1a1a2e;color:#ffd700;font:700 16px system-ui,sans-serif;z-index:2}
+html,body{margin:0;width:100%;height:100%;background:#1a1a2e;color:#ffd700}
+body{display:flex;align-items:center;justify-content:center;font:700 16px system-ui,sans-serif}
 </style>
 </head>
 <body>
 <div id="loading">Lost Ruby 로딩 중…</div>
-<iframe id="game" title="Lost Ruby" src="app.html?v=earth1-20260827"></iframe>
 <script>
-(() => {
-  const frame = document.getElementById('game');
-  const loading = document.getElementById('loading');
-  frame.addEventListener('load', () => {
-    try {
-      const d = frame.contentDocument;
-      if (!d || d.getElementById('earth1-production-loader')) return;
-      const s = d.createElement('script');
-      s.id = 'earth1-production-loader';
-      s.src = 'earth1.js?v=earth1-20260827';
-      s.onload = () => { loading.style.display = 'none'; };
-      s.onerror = () => { loading.textContent = '게임 모듈을 불러오지 못했습니다.'; };
-      (d.body || d.documentElement).appendChild(s);
-    } catch (e) {
-      loading.textContent = '게임을 불러오지 못했습니다.';
-      console.error(e);
-    }
-  });
+(async () => {
+  try {
+    const res = await fetch('app.html?v=earth1-20260827', { cache: 'no-store' });
+    if (!res.ok) throw new Error('app.html ' + res.status);
+    let html = await res.text();
+    const loader = '<script src="earth1.js?v=earth1-20260827"><' + '/script>';
+    if (/<\/body>/i.test(html)) html = html.replace(/<\/body>/i, loader + '</body>');
+    else html += loader;
+    document.open();
+    document.write(html);
+    document.close();
+  } catch (e) {
+    document.getElementById('loading').textContent = '게임을 불러오지 못했습니다.';
+    console.error(e);
+  }
 })();
 </script>
 </body>
