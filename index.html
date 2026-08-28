@@ -17,11 +17,12 @@ body{display:flex;align-items:center;justify-content:center;font:700 16px system
 <script>
 (async () => {
   try {
-    const res = await fetch('app.html?v=delta1-20260827', { cache: 'no-store' });
+    const res = await fetch('app.html?v=ancient1-20260828', { cache: 'no-store' });
     if (!res.ok) throw new Error('app.html ' + res.status);
     let html = await res.text();
-    const loader = '<script src="earth1.js?v=delta1-20260827"><' + '/script>' +
-                   '<script src="delta1.js?v=delta1-20260827"><' + '/script>';
+    const loader = '<script src="earth1.js?v=ancient1-20260828"><' + '/script>' +
+                   '<script src="delta1.js?v=ancient1-20260828"><' + '/script>' +
+                   '<script src="ancient1.js?v=ancient1-20260828"><' + '/script>';
     if (/<\/body>/i.test(html)) html = html.replace(/<\/body>/i, loader + '</body>');
     else html += loader;
     document.open();
