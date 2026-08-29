@@ -17,15 +17,18 @@ body{display:flex;align-items:center;justify-content:center;font:700 16px system
 <script>
 (async () => {
   try {
-    const res = await fetch('app.html?v=settings-20260830', { cache: 'no-store' });
+    const res = await fetch('app.html?v=future1-20260830', { cache: 'no-store' });
     if (!res.ok) throw new Error('app.html ' + res.status);
     let html = await res.text();
-    const loader = '<script src="earth1.js?v=settings-20260830"><' + '/script>' +
-                   '<script src="delta1.js?v=settings-20260830"><' + '/script>' +
-                   '<script src="ancient1.js?v=settings-20260830"><' + '/script>' +
-                   '<script src="story_ui_patch.js?v=settings-20260830"><' + '/script>' +
-                   '<script src="ancient_bgm.js?v=settings-20260830"><' + '/script>' +
-                   '<script src="settings_ui.js?v=settings-20260830"><' + '/script>';
+    const loader = '<script src="earth1.js?v=future1-20260830"><' + '/script>' +
+                   '<script src="delta1.js?v=future1-20260830"><' + '/script>' +
+                   '<script src="ancient1.js?v=future1-20260830"><' + '/script>' +
+                   '<script src="future_stage_bgm.js?v=future1-20260830"><' + '/script>' +
+                   '<script src="future1.js?v=future1-20260830"><' + '/script>' +
+                   '<script src="story_system_fix.js?v=future1-20260830"><' + '/script>' +
+                   '<script src="story_ui_patch.js?v=future1-20260830"><' + '/script>' +
+                   '<script src="ancient_bgm.js?v=future1-20260830"><' + '/script>' +
+                   '<script src="settings_ui.js?v=future1-20260830"><' + '/script>';
     if (/<\/body>/i.test(html)) html = html.replace(/<\/body>/i, loader + '</body>');
     else html += loader;
     document.open();
