@@ -17,22 +17,24 @@ body{display:flex;align-items:center;justify-content:center;font:700 16px system
 <script>
 (async () => {
   try {
-    const res = await fetch('app.html?v=futurebalance-20260905', { cache: 'no-store' });
+    const res = await fetch('app.html?v=nohv6codes-20260905', { cache: 'no-store' });
     if (!res.ok) throw new Error('app.html ' + res.status);
     let html = await res.text();
-    const loader = '<script src="earth1.js?v=futurebalance-20260905"><' + '/script>' +
-                   '<script src="delta1.js?v=futurebalance-20260905"><' + '/script>' +
-                   '<script src="ancient1.js?v=futurebalance-20260905"><' + '/script>' +
-                   '<script src="future_stage_bgm.js?v=futurebalance-20260905"><' + '/script>' +
-                   '<script src="future1.js?v=futurebalance-20260905"><' + '/script>' +
-                   '<script src="story_system_fix.js?v=futurebalance-20260905"><' + '/script>' +
-                   '<script src="future1_fix_v2.js?v=futurebalance-20260905"><' + '/script>' +
-                   '<script src="story_ui_patch.js?v=futurebalance-20260905"><' + '/script>' +
-                   '<script src="ancient_bgm.js?v=futurebalance-20260905"><' + '/script>' +
-                   '<script src="settings_ui.js?v=futurebalance-20260905"><' + '/script>' +
-                   '<script src="economy_guard.js?v=futurebalance-20260905"><' + '/script>' +
-                   '<script src="treasure_ui.js?v=futurebalance-20260905"><' + '/script>' +
-                   '<script src="shop_v2.js?v=futurebalance-20260905"><' + '/script>';
+    const loader = '<script src="earth1.js?v=nohv6codes-20260905"><' + '/script>' +
+                   '<script src="delta1.js?v=nohv6codes-20260905"><' + '/script>' +
+                   '<script src="ancient1.js?v=nohv6codes-20260905"><' + '/script>' +
+                   '<script src="future_stage_bgm.js?v=nohv6codes-20260905"><' + '/script>' +
+                   '<script src="future1.js?v=nohv6codes-20260905"><' + '/script>' +
+                   '<script src="story_system_fix.js?v=nohv6codes-20260905"><' + '/script>' +
+                   '<script src="future1_fix_v2.js?v=nohv6codes-20260905"><' + '/script>' +
+                   '<script src="noh_boss_v6.js?v=nohv6codes-20260905"><' + '/script>' +
+                   '<script src="story_ui_patch.js?v=nohv6codes-20260905"><' + '/script>' +
+                   '<script src="ancient_bgm.js?v=nohv6codes-20260905"><' + '/script>' +
+                   '<script src="settings_ui.js?v=nohv6codes-20260905"><' + '/script>' +
+                   '<script src="special_codes.js?v=nohv6codes-20260905"><' + '/script>' +
+                   '<script src="economy_guard.js?v=nohv6codes-20260905"><' + '/script>' +
+                   '<script src="treasure_ui.js?v=nohv6codes-20260905"><' + '/script>' +
+                   '<script src="shop_v2.js?v=nohv6codes-20260905"><' + '/script>';
     if (/<\/body>/i.test(html)) html = html.replace(/<\/body>/i, loader + '</body>');
     else html += loader;
     document.open();
