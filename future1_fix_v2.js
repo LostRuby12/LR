@@ -3,7 +3,7 @@
 const T=['','시간의 역전','오버드라이브','콘스탄티노폴리스','아크 지구','예루살렘','아틀란티스','달','타임오버'];
 const TR=['','시간칩','오버드라이브 엔진','시간 코어','아크 셀','성지순례','심해 결정체','월석 파편','시간선의 초월'];
 const GN=['없음','낡은','평범','최고급'];
-const E={1:[['정찰 드론',220,35,'펄스 레이저'],['보안 드론',320,45,'전기 충격탄',0,.15]],4:[['중장갑 수호기',1100,110,'이온 라이플'],['저거너트 슬레이어',1600,130,'충격포',.2],['아크 집행자',2300,160,'아크 캐논',0,0,3]],6:[['아틀란티스 프라임',1700,150,'수압 라이플'],['아셔 거행자',2600,190,'압력창',.2],['아틀란티스 수호자',4200,240,'심해 파동포',0,0,3]]};
+const E={1:[['정찰 드론',220,35,'펄스 레이저'],['보안 드론',320,45,'전기 충격탄',0,.15]],4:[['중장갑 수호기',1300,120,'이온 라이플'],['저거너트 슬레이어',1900,145,'충격포',.2],['아크 집행자',2800,180,'아크 캐논',0,0,3]],6:[['아틀란티스 프라임',2400,165,'수압 라이플'],['아셔 거행자',3200,210,'압력창',.2],['아틀란티스 수호자',5200,270,'심해 파동포',0,0,3]]};
 let b=null,q=null,tr=null,busy=false;const $=x=>document.getElementById(x);
 function d(){saveData.story??={};saveData.story.stages??={};saveData.story.clearedChapters??={};saveData.story.future1Data??={};const x=saveData.story.future1Data;x.treasures??={};x.lpRewarded??={};for(let i=1;i<=8;i++)x.treasures[i]=Math.max(0,Math.min(3,+x.treasures[i]||0));x.coreDestroyed=!!x.coreDestroyed;return x}
 const pg=()=>Math.max(0,Math.min(8,+saveData.story?.stages?.future1||0));const cnt=()=>{let n=0;for(let i=1;i<=8;i++)if(d().treasures[i]>0)n++;return n};
